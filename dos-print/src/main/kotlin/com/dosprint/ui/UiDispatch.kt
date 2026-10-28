@@ -211,6 +211,8 @@ sealed interface SettingsAction {
 
     data class ToggleContrast(val enabled: Boolean) : SettingsAction
 
+    data class ToggleLiquidGlass(val enabled: Boolean) : SettingsAction
+
     data class SelectDefaultQuality(val resolution: PrintResolution) : SettingsAction
 
     data class SelectDefaultColorMode(val mode: ColorMode) : SettingsAction

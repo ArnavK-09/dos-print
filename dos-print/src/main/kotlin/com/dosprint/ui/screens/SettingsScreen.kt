@@ -106,6 +106,12 @@ private fun AppearanceCard(state: SettingsUiState, onAction: (SettingsAction) ->
                 checked = state.preferences.increaseContrast,
                 onCheckedChange = { onAction(SettingsAction.ToggleContrast(it)) },
             )
+            LabeledSwitch(
+                label = stringResource(R.string.settings_liquid_glass),
+                summary = stringResource(R.string.settings_liquid_glass_summary),
+                checked = state.preferences.liquidGlassEnabled,
+                onCheckedChange = { onAction(SettingsAction.ToggleLiquidGlass(it)) },
+            )
         }
     }
 }

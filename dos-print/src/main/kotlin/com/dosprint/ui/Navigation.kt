@@ -1,12 +1,18 @@
 package com.dosprint.ui
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
@@ -15,13 +21,22 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import com.kyant.backdrop.Backdrop
 import com.dosprint.R
 import com.dosprint.ui.components.DosPrintIcons
+import com.dosprint.ui.components.liquidglass.LiquidBottomTab
+import com.dosprint.ui.components.liquidglass.LiquidBottomTabs
 import com.dosprint.ui.theme.DosPrintDimens
 
 enum class TopLevelDestination(
@@ -88,6 +103,8 @@ fun DosPrintBottomBar(
     currentRoute: String?,
     windowSizeClass: WindowSizeClass,
     onNavigate: (TopLevelDestination) -> Unit,
+    backdrop: Backdrop,
+    liquidGlassEnabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val destinations = if (windowSizeClass.isExpandedWidth()) {
@@ -95,22 +112,73 @@ fun DosPrintBottomBar(
     } else {
         PhoneDestinations
     }
-    NavigationBar(modifier = modifier) {
-        destinations.forEach { destination ->
-            val selected = currentRoute == destination.route
+    if (!liquidGlassEnabled) {
+        NavigationBar(modifier = modifier) {
+            destinations.forEach { destination ->
+                val selected = currentRoute == destination.route
+                val label = stringResource(destination.labelRes)
+                NavigationBarItem(
+                    selected = selected,
+                    onClick = { onNavigate(destination) },
+                    icon = {
+                        Icon(
+                            imageVector = if (selected) destination.selectedIcon else destination.unselectedIcon,
+                            contentDescription = null,
+                        )
+                    },
+                    label = { Text(label) },
+                    modifier = Modifier.semantics { contentDescription = label },
+                )
+            }
+        }
+        return
+    }
+
+    var selectedIndex by remember(destinations) {
+        mutableIntStateOf(destinations.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0))
+    }
+    LaunchedEffect(currentRoute, destinations) {
+        val routeIndex = destinations.indexOfFirst { it.route == currentRoute }
+        if (routeIndex >= 0) selectedIndex = routeIndex
+    }
+    val colors = MaterialTheme.colorScheme
+    LiquidBottomTabs(
+        selectedTabIndex = { selectedIndex },
+        onTabSelected = { index ->
+            destinations.getOrNull(index)?.let { destination ->
+                selectedIndex = index
+                onNavigate(destination)
+            }
+        },
+        backdrop = backdrop,
+        tabsCount = destinations.size,
+        modifier = modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+    ) {
+        destinations.forEachIndexed { index, destination ->
             val label = stringResource(destination.labelRes)
-            NavigationBarItem(
-                selected = selected,
-                onClick = { onNavigate(destination) },
-                icon = {
-                    Icon(
-                        imageVector = if (selected) destination.selectedIcon else destination.unselectedIcon,
-                        contentDescription = null,
-                    )
+            val selected = selectedIndex == index
+            LiquidBottomTab(
+                onClick = {
+                    selectedIndex = index
+                    onNavigate(destination)
                 },
-                label = { Text(label) },
                 modifier = Modifier.semantics { contentDescription = label },
-            )
+            ) {
+                Icon(
+                    imageVector = if (selected) destination.selectedIcon else destination.unselectedIcon,
+                    contentDescription = null,
+                    tint = if (selected) colors.onSurface else colors.onSurfaceVariant,
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (selected) colors.onSurface else colors.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }

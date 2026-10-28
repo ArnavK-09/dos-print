@@ -16,6 +16,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,7 +33,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -60,6 +63,8 @@ import com.dosprint.ui.screens.PrintersScreen
 import com.dosprint.ui.screens.SettingsScreen
 import com.dosprint.ui.screens.SetupScreen
 import com.dosprint.ui.theme.DosPrintTheme
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -153,6 +158,7 @@ fun DosPrintApp(
     val settingsState by settingsViewModel.state.collectAsStateWithLifecycle()
 
     val themePreferences = preferences
+    val backdrop = rememberLayerBackdrop()
 
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
@@ -266,59 +272,68 @@ fun DosPrintApp(
         Scaffold(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
-            bottomBar = {
+        ) { scaffoldPadding ->
+            val glassEnabled = preferences.liquidGlassEnabled
+            val screenPadding = rememberScreenPadding(
+                content = scaffoldPadding,
+                horizontal = screenGutter(windowSizeClass.isExpandedWidth()),
+                bottom = if (glassEnabled) 88.dp else 104.dp,
+            )
+            Box(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier.fillMaxSize().then(
+                        if (glassEnabled) Modifier.layerBackdrop(backdrop) else Modifier,
+                    ),
+                ) {
+                    DosPrintNavigationRail(
+                        currentRoute = currentRoute,
+                        windowSizeClass = windowSizeClass,
+                        onNavigate = { navController.navigateTop(it) },
+                    )
+                    DosPrintNavHost(
+                        navController = navController,
+                        contentPadding = screenPadding,
+                        states = ScreenStates(
+                            home = homeState,
+                            documents = docsState,
+                            printers = printersState,
+                            setup = setupState,
+                            preview = previewState,
+                            settings = settingsState,
+                        ),
+                        callbacks = ScreenCallbacks(
+                            actions = ScreenActions(
+                                onHome = homeViewModel::acceptAction,
+                                onDocuments = documentsViewModel::acceptAction,
+                                onPrinters = printersViewModel::acceptAction,
+                                onSetup = setupViewModel::dispatch,
+                                onImagePageChange = setupViewModel::setImagePage,
+                                onPreview = previewViewModel::dispatch,
+                                onSettings = settingsViewModel::acceptAction,
+                            ),
+                            launchers = ScreenLaunchers(
+                                onPickFiles = { filePicker.launch(DocumentMimeTypes) },
+                                onPickImages = { mediaPicker.launch(ImageMimeTypes) },
+                                onPickMedia = { mediaPicker.launch(ImageMimeTypes) },
+                                onSavePdf = requestPdfSave,
+                                onRequestNotificationPermission = {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    }
+                                },
+                                onSetupSurfaceWidth = setupViewModel::onPreviewSurface,
+                                onPreviewSurfaceWidth = previewViewModel::onSurfaceWidth,
+                            ),
+                        ),
+                    )
+                }
                 DosPrintBottomBar(
                     currentRoute = currentRoute,
                     windowSizeClass = windowSizeClass,
                     onNavigate = { navController.navigateTop(it) },
-                )
-            },
-        ) { scaffoldPadding ->
-            val screenPadding = rememberScreenPadding(
-                content = scaffoldPadding,
-                horizontal = screenGutter(windowSizeClass.isExpandedWidth()),
-            )
-            Row(modifier = Modifier.fillMaxSize()) {
-                DosPrintNavigationRail(
-                    currentRoute = currentRoute,
-                    windowSizeClass = windowSizeClass,
-                    onNavigate = { navController.navigateTop(it) },
-                )
-                DosPrintNavHost(
-                    navController = navController,
-                    contentPadding = screenPadding,
-                    states = ScreenStates(
-                        home = homeState,
-                        documents = docsState,
-                        printers = printersState,
-                        setup = setupState,
-                        preview = previewState,
-                        settings = settingsState,
-                    ),
-                    callbacks = ScreenCallbacks(
-                        actions = ScreenActions(
-                            onHome = homeViewModel::acceptAction,
-                            onDocuments = documentsViewModel::acceptAction,
-                            onPrinters = printersViewModel::acceptAction,
-                            onSetup = setupViewModel::dispatch,
-                            onImagePageChange = setupViewModel::setImagePage,
-                            onPreview = previewViewModel::dispatch,
-                            onSettings = settingsViewModel::acceptAction,
-                        ),
-                        launchers = ScreenLaunchers(
-                            onPickFiles = { filePicker.launch(DocumentMimeTypes) },
-                            onPickImages = { mediaPicker.launch(ImageMimeTypes) },
-                            onPickMedia = { mediaPicker.launch(ImageMimeTypes) },
-                            onSavePdf = requestPdfSave,
-                            onRequestNotificationPermission = {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                }
-                            },
-                            onSetupSurfaceWidth = setupViewModel::onPreviewSurface,
-                            onPreviewSurfaceWidth = previewViewModel::onSurfaceWidth,
-                        ),
-                    ),
+                    backdrop = backdrop,
+                    liquidGlassEnabled = glassEnabled,
+                    modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
         }
