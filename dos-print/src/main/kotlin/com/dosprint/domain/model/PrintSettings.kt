@@ -81,7 +81,9 @@ data class PrintSettings(
         }
 
     fun withClampedValues(): PrintSettings {
-        val clampedImagePage = imagePageSettings.withImagesPerPage(imagePageSettings.imagesPerPage, sheetAspect)
+        val clampedImagePage = imagePageSettings
+            .withSafeCustomPhotoSize()
+            .withImagesPerPage(imagePageSettings.imagesPerPage, sheetAspect)
         val effectiveMargin = if (borderless || marginPreset == MarginPreset.NONE) {
             0f
         } else {

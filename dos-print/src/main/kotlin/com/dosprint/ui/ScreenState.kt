@@ -19,6 +19,7 @@ class ScreenCallbacks(
 
 class ScreenActions(
     val onHome: (HomeAction) -> Unit,
+    val onHomeDocumentClicked: (com.dosprint.domain.model.PrintDocument) -> Unit,
     val onDocuments: (DocumentsAction) -> Unit,
     val onPrinters: (PrintersAction) -> Unit,
     val onSetup: (SetupAction) -> Unit,

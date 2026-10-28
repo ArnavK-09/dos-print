@@ -17,11 +17,7 @@ import com.dosprint.domain.model.UserPreferences
 
 @Immutable
 data class HomeUiState(
-    val isLoading: Boolean = false,
     val favoriteDocuments: List<PrintDocument> = emptyList(),
-    val printers: List<PrinterProfile> = emptyList(),
-    val defaultPrinter: PrinterProfile? = null,
-    val isPrintServiceAvailable: Boolean = true,
     val snackbarMessage: String? = null,
 )
 

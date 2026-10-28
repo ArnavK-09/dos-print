@@ -156,8 +156,8 @@ class PrintDocumentComposer(
         ) {
             return emptyList()
         }
-        val photoWidth = page.photoSize.widthInches * pageWidth / paper.widthInches
-        val photoHeight = page.photoSize.heightInches * pageHeight / paper.heightInches
+        val photoWidth = page.photoWidthInches * pageWidth / paper.widthInches
+        val photoHeight = page.photoHeightInches * pageHeight / paper.heightInches
         val marginX = pageWidth * grid.marginFraction
         val marginY = pageHeight * grid.marginFraction
         val printableBounds = RectF(

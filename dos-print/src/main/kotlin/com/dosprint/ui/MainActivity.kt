@@ -51,6 +51,7 @@ import com.dosprint.core.ErrorRecord
 import com.dosprint.core.ErrorReporter
 import com.dosprint.core.Outcome
 import com.dosprint.data.render.SheetPreviewRenderer
+import com.dosprint.domain.model.DocumentKind
 import com.dosprint.domain.model.PrintDocument
 import com.dosprint.domain.model.PrintSettings
 import com.dosprint.domain.model.isPdfDestination
@@ -128,7 +129,6 @@ fun DosPrintApp(
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
-    var printFlowWasOpen by remember { mutableStateOf(false) }
 
     val documentsViewModel: DocumentsViewModel = viewModel(
         factory = DocumentsViewModel.Factory(container, session),
@@ -222,12 +222,13 @@ fun DosPrintApp(
 
         LaunchedEffect(currentRoute) {
             AppLog.info("navigation: now on ${currentRoute ?: "none"}")
-            if (currentRoute == Route.Setup || currentRoute == Route.Preview) {
-                printFlowWasOpen = true
-            } else if (printFlowWasOpen && currentRoute in TopLevelRoutes) {
-                session.clearDocuments()
+        }
+        LaunchedEffect(currentRoute) {
+            if ((currentRoute == Route.Setup || currentRoute == Route.Preview) &&
+                session.selection.value.documents.isEmpty()
+            ) {
                 documentsViewModel.clearSelection()
-                printFlowWasOpen = false
+                navController.navigateHome()
             }
         }
 
@@ -288,7 +289,14 @@ fun DosPrintApp(
                     DosPrintNavigationRail(
                         currentRoute = currentRoute,
                         windowSizeClass = windowSizeClass,
-                        onNavigate = { navController.navigateTop(it) },
+                        onNavigate = {
+                            navigateTopDestination(
+                                navController = navController,
+                                destination = it,
+                                session = session,
+                                documentsViewModel = documentsViewModel,
+                            )
+                        },
                     )
                     DosPrintNavHost(
                         navController = navController,
@@ -304,6 +312,17 @@ fun DosPrintApp(
                         callbacks = ScreenCallbacks(
                             actions = ScreenActions(
                                 onHome = homeViewModel::acceptAction,
+                                onHomeDocumentClicked = { document ->
+                                    session.setDocuments(listOf(document))
+                                    setupViewModel.selectMode(
+                                        if (document.format.kind == DocumentKind.IMAGE) {
+                                            PrintMode.IMAGES
+                                        } else {
+                                            PrintMode.DOCUMENTS
+                                        },
+                                    )
+                                    navController.navigate(Route.Setup)
+                                },
                                 onDocuments = documentsViewModel::acceptAction,
                                 onPrinters = printersViewModel::acceptAction,
                                 onSetup = setupViewModel::dispatch,
@@ -330,7 +349,14 @@ fun DosPrintApp(
                 DosPrintBottomBar(
                     currentRoute = currentRoute,
                     windowSizeClass = windowSizeClass,
-                    onNavigate = { navController.navigateTop(it) },
+                    onNavigate = {
+                        navigateTopDestination(
+                            navController = navController,
+                            destination = it,
+                            session = session,
+                            documentsViewModel = documentsViewModel,
+                        )
+                    },
                     backdrop = backdrop,
                     liquidGlassEnabled = glassEnabled,
                     modifier = Modifier.align(Alignment.BottomCenter),
@@ -359,13 +385,6 @@ private fun suggestedPdfFileName(documents: List<PrintDocument>): String {
     return "$baseName.pdf"
 }
 
-private val TopLevelRoutes = setOf(
-    Route.Home,
-    Route.Documents,
-    Route.Printers,
-    Route.Settings,
-)
-
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
 private fun DosPrintNavHost(
@@ -383,6 +402,7 @@ private fun DosPrintNavHost(
     val actions = callbacks.actions
     val launchers = callbacks.launchers
     val onHomeAction = actions.onHome
+    val onHomeDocumentClicked = actions.onHomeDocumentClicked
     val onDocumentsAction = actions.onDocuments
     val onPrintersAction = actions.onPrinters
     val onSetupAction = actions.onSetup
@@ -410,7 +430,7 @@ private fun DosPrintNavHost(
                         HomeAction.OpenDocuments -> navController.navigateTop(TopLevelDestination.DOCUMENTS)
                         HomeAction.PickDocuments -> onPickFiles()
                         HomeAction.PickImages -> onPickImages()
-                        is HomeAction.DocumentClicked -> navController.navigate(Route.Setup)
+                        is HomeAction.DocumentClicked -> onHomeDocumentClicked(action.document)
                         else -> onHomeAction(action)
                     }
                 },
@@ -500,11 +520,39 @@ private fun DosPrintNavHost(
 }
 
 private fun NavHostController.navigateTop(destination: TopLevelDestination) {
-    navigate(destination.route) {
-        popUpTo(graph.startDestinationId) { saveState = true }
-        launchSingleTop = true
-        restoreState = true
+    if (destination == TopLevelDestination.HOME) {
+        navigateHome()
+        return
     }
+    navigate(destination.route) {
+        popUpTo(graph.startDestinationId) { saveState = false }
+        launchSingleTop = true
+        restoreState = false
+    }
+}
+
+private fun NavHostController.navigateHome() {
+    navigate(Route.Home) {
+        popUpTo(graph.startDestinationId) {
+            inclusive = false
+            saveState = false
+        }
+        launchSingleTop = true
+        restoreState = false
+    }
+}
+
+private fun navigateTopDestination(
+    navController: NavHostController,
+    destination: TopLevelDestination,
+    session: SessionStore,
+    documentsViewModel: DocumentsViewModel,
+) {
+    if (destination == TopLevelDestination.HOME) {
+        session.clearDocuments()
+        documentsViewModel.clearSelection()
+    }
+    navController.navigateTop(destination)
 }
 
 class ContextNotificationPermissionChecker(

@@ -25,6 +25,8 @@ data class ImagePageSettings(
     val rows: Int = 2,
     val border: PhotoBorder = PhotoBorder.NONE,
     val photoSize: PhotoSizePreset = PhotoSizePreset.AUTO,
+    val customPhotoWidthInches: Float = DEFAULT_CUSTOM_PHOTO_WIDTH_INCHES,
+    val customPhotoHeightInches: Float = DEFAULT_CUSTOM_PHOTO_HEIGHT_INCHES,
     val perPage: ImagesPerPage = if (imagesPerPage <= 1) ImagesPerPage.SINGLE else ImagesPerPage.MULTIPLE,
 ) {
     val usesGrid: Boolean get() = perPage == ImagesPerPage.MULTIPLE && imagesPerPage > 1
@@ -39,6 +41,36 @@ data class ImagePageSettings(
      * compact group keeps the pictures together so the sheet reads as a set.
      */
     val packsImagesTogether: Boolean get() = compactGroup
+
+    val photoWidthInches: Float
+        get() = if (photoSize == PhotoSizePreset.CUSTOM) {
+            customPhotoWidthInches.takeIf { isValidCustomPhotoDimension(it) }
+                ?: DEFAULT_CUSTOM_PHOTO_WIDTH_INCHES
+        } else {
+            photoSize.widthInches
+        }
+
+    val photoHeightInches: Float
+        get() = if (photoSize == PhotoSizePreset.CUSTOM) {
+            customPhotoHeightInches.takeIf { isValidCustomPhotoDimension(it) }
+                ?: DEFAULT_CUSTOM_PHOTO_HEIGHT_INCHES
+        } else {
+            photoSize.heightInches
+        }
+
+    val photoAspectRatio: Float
+        get() = if (photoSize == PhotoSizePreset.AUTO) {
+            photoSize.aspectRatio
+        } else {
+            photoWidthInches / photoHeightInches
+        }
+
+    fun withSafeCustomPhotoSize(): ImagePageSettings = copy(
+        customPhotoWidthInches = customPhotoWidthInches.takeIf { isValidCustomPhotoDimension(it) }
+            ?: DEFAULT_CUSTOM_PHOTO_WIDTH_INCHES,
+        customPhotoHeightInches = customPhotoHeightInches.takeIf { isValidCustomPhotoDimension(it) }
+            ?: DEFAULT_CUSTOM_PHOTO_HEIGHT_INCHES,
+    )
 
     val effectiveGrid: LayoutGrid
         get() = layoutGridFor(DEFAULT_PAPER_ASPECT)
@@ -56,7 +88,7 @@ data class ImagePageSettings(
         val dimensions = gridDimensionsFor(
             imagesPerPage.coerceIn(MIN_IMAGES_PER_PAGE, MAX_IMAGES_PER_PAGE),
             pageAspect,
-            photoSize.aspectRatio,
+            photoAspectRatio,
             pageWidthInches,
             pageHeightInches,
             marginFraction,
@@ -78,7 +110,7 @@ data class ImagePageSettings(
                 grid = grid.copy(columns = 1, rows = 1),
             )
         }
-        val dimensions = gridDimensionsFor(safeCount, pageAspect, photoSize.aspectRatio)
+        val dimensions = gridDimensionsFor(safeCount, pageAspect, photoAspectRatio)
         return copy(
             imagesPerPage = safeCount,
             columns = dimensions.columns,
@@ -109,19 +141,21 @@ data class ImagePageSettings(
         }
         if (count !in MIN_IMAGES_PER_PAGE..MAX_IMAGES_PER_PAGE ||
             pageWidthInches <= 0f ||
-            pageHeightInches <= 0f
+            pageHeightInches <= 0f ||
+            !isValidCustomPhotoDimension(photoWidthInches) ||
+            !isValidCustomPhotoDimension(photoHeightInches)
         ) {
             return false
         }
         val margin = marginFraction.coerceIn(0f, 0.2f)
         if (count == 1) {
-            return photoSize.widthInches <= pageWidthInches * (1f - 2f * margin) &&
-                photoSize.heightInches <= pageHeightInches * (1f - 2f * margin)
+            return photoWidthInches <= pageWidthInches * (1f - 2f * margin) &&
+                photoHeightInches <= pageHeightInches * (1f - 2f * margin)
         }
         return gridDimensionsFor(
             count = count,
             pageAspect = pageAspect,
-            photoAspect = photoSize.aspectRatio,
+            photoAspect = photoAspectRatio,
             pageWidthInches = pageWidthInches,
             pageHeightInches = pageHeightInches,
             marginFraction = margin,
@@ -175,9 +209,9 @@ data class ImagePageSettings(
             val fits = when {
                 photoSize == PhotoSizePreset.AUTO || !physicalSizeKnown -> true
                 compactGroup -> {
-                    val packedWidth = candidateColumns * photoSize.widthInches +
+                    val packedWidth = candidateColumns * photoWidthInches +
                         (candidateColumns - 1) * gutterX!!
-                    val packedHeight = candidateRows * photoSize.heightInches +
+                    val packedHeight = candidateRows * photoHeightInches +
                         (candidateRows - 1) * gutterY!!
                     packedWidth <= usableWidth!! && packedHeight <= usableHeight!!
                 }
@@ -186,7 +220,7 @@ data class ImagePageSettings(
                         pageWidthInches!! * cellBorderFraction * 2f
                     val cellHeight = (usableHeight!! - gutterY!! * (candidateRows - 1)) / candidateRows -
                         pageHeightInches!! * cellBorderFraction * 2f
-                    photoSize.widthInches <= cellWidth && photoSize.heightInches <= cellHeight
+                    photoWidthInches <= cellWidth && photoHeightInches <= cellHeight
                 }
             }
             if (fits && score < bestFittingScore) {
@@ -202,11 +236,18 @@ data class ImagePageSettings(
     companion object {
         const val MIN_IMAGES_PER_PAGE = 1
         const val MAX_IMAGES_PER_PAGE = 36
+        const val MIN_CUSTOM_PHOTO_DIMENSION_INCHES = 0.01f
+        const val MAX_CUSTOM_PHOTO_DIMENSION_INCHES = 100f
+        const val DEFAULT_CUSTOM_PHOTO_WIDTH_INCHES = 2f
+        const val DEFAULT_CUSTOM_PHOTO_HEIGHT_INCHES = 2f
         private const val MIN_GRID_SIDE = 1
         private const val MAX_GRID_SIDE = 6
         private const val UNUSED_SLOT_PENALTY = 0.025f
         private const val DEFAULT_PAPER_ASPECT = 0.707f
     }
+
+    private fun isValidCustomPhotoDimension(value: Float): Boolean =
+        value.isFinite() && value in MIN_CUSTOM_PHOTO_DIMENSION_INCHES..MAX_CUSTOM_PHOTO_DIMENSION_INCHES
 }
 
 enum class ImageGridOrientation {
@@ -248,10 +289,15 @@ enum class PhotoSizePreset(
     PRINT_20X16("Photo print · 20 × 16 in", 20f, 16f),
     PRINT_20X30("Photo print · 20 × 30 in", 20f, 30f),
     PRINT_30X20("Photo print · 30 × 20 in", 30f, 20f),
+    CUSTOM("Custom size", 0f, 0f),
     ;
 
     val aspectRatio: Float
-        get() = if (this == AUTO) PREFERRED_PHOTO_ASPECT else widthInches / heightInches
+        get() = when {
+            this == AUTO -> PREFERRED_PHOTO_ASPECT
+            widthInches > 0f && heightInches > 0f -> widthInches / heightInches
+            else -> 1f
+        }
 
     companion object {
         private const val PREFERRED_PHOTO_ASPECT = 0.67f

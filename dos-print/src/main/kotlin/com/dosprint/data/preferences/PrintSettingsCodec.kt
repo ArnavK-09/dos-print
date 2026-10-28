@@ -17,7 +17,8 @@ object PrintSettingsCodec {
     private const val VERSION_V5 = "v5"
     private const val VERSION_V6 = "v6"
     private const val VERSION_V7 = "v7"
-    private const val VERSION = "v8"
+    private const val VERSION_V8 = "v8"
+    private const val VERSION = "v9"
 
     fun encode(settings: PrintSettings): String = listOf(
         VERSION,
@@ -49,11 +50,13 @@ object PrintSettingsCodec {
         settings.imagePageSettings.rotation.name,
         settings.imagePageSettings.border.name,
         settings.imagePageSettings.photoSize.name,
+        settings.imagePageSettings.customPhotoWidthInches.toString(),
+        settings.imagePageSettings.customPhotoHeightInches.toString(),
     ).joinToString(SEPARATOR)
 
     fun decode(encoded: String): PrintSettings? {
         val parts = encoded.split(SEPARATOR)
-        if (parts.isEmpty() || parts.first() !in setOf(VERSION_V1, VERSION_V2, VERSION_V3, VERSION_V4, VERSION_V5, VERSION_V6, VERSION_V7, VERSION)) {
+        if (parts.isEmpty() || parts.first() !in setOf(VERSION_V1, VERSION_V2, VERSION_V3, VERSION_V4, VERSION_V5, VERSION_V6, VERSION_V7, VERSION_V8, VERSION)) {
             return null
         }
         if (parts.size < 17) {
@@ -89,7 +92,7 @@ object PrintSettingsCodec {
         parts: List<String>,
         defaults: ImagePageSettings,
     ): ImagePageSettings = when {
-        version in setOf(VERSION_V3, VERSION_V4, VERSION_V5, VERSION_V6, VERSION_V7, VERSION) && parts.size >= 25 -> {
+        version in setOf(VERSION_V3, VERSION_V4, VERSION_V5, VERSION_V6, VERSION_V7, VERSION_V8, VERSION) && parts.size >= 25 -> {
             val imagesPerPage = parts[22].toIntOrNull()
                 ?.coerceIn(ImagePageSettings.MIN_IMAGES_PER_PAGE, ImagePageSettings.MAX_IMAGES_PER_PAGE)
                 ?: defaults.imagesPerPage
@@ -107,26 +110,36 @@ object PrintSettingsCodec {
                 rows = rows,
                 grid = defaults.grid.copy(columns = columns, rows = rows),
                 gridOrientation = when {
-                    version in setOf(VERSION_V5, VERSION_V6, VERSION_V7, VERSION) && parts.size >= 26 ->
+                    version in setOf(VERSION_V5, VERSION_V6, VERSION_V7, VERSION_V8, VERSION) && parts.size >= 26 ->
                         enumOrDefault(parts[25], defaults.gridOrientation)
                     version == VERSION_V4 && parts.size >= 26 && parts[25] == "STACKED" ->
                         ImageGridOrientation.STACKED
                     else -> defaults.gridOrientation
                 },
-                rotation = if (version in setOf(VERSION_V6, VERSION_V7, VERSION) && parts.size >= 27) {
+                rotation = if (version in setOf(VERSION_V6, VERSION_V7, VERSION_V8, VERSION) && parts.size >= 27) {
                     enumOrDefault(parts[26], defaults.rotation)
                 } else {
                     enumOrDefault(parts[11], defaults.rotation)
                 },
-                border = if (version in setOf(VERSION_V7, VERSION) && parts.size >= 28) {
+                border = if (version in setOf(VERSION_V7, VERSION_V8, VERSION) && parts.size >= 28) {
                     enumOrDefault(parts[27], defaults.border)
                 } else {
                     defaults.border
                 },
-                photoSize = if (version == VERSION && parts.size >= 29) {
+                photoSize = if (version in setOf(VERSION_V8, VERSION) && parts.size >= 29) {
                     enumOrDefault(parts[28], defaults.photoSize)
                 } else {
                     defaults.photoSize
+                },
+                customPhotoWidthInches = if (version == VERSION && parts.size >= 31) {
+                    parts[29].toPhotoDimensionOrNull() ?: defaults.customPhotoWidthInches
+                } else {
+                    defaults.customPhotoWidthInches
+                },
+                customPhotoHeightInches = if (version == VERSION && parts.size >= 31) {
+                    parts[30].toPhotoDimensionOrNull() ?: defaults.customPhotoHeightInches
+                } else {
+                    defaults.customPhotoHeightInches
                 },
             )
         }
@@ -159,5 +172,11 @@ object PrintSettingsCodec {
             "true" -> true
             "false" -> false
             else -> fallback
+        }
+
+    private fun String.toPhotoDimensionOrNull(): Float? =
+        toFloatOrNull()?.takeIf {
+            it.isFinite() &&
+                it in ImagePageSettings.MIN_CUSTOM_PHOTO_DIMENSION_INCHES..ImagePageSettings.MAX_CUSTOM_PHOTO_DIMENSION_INCHES
         }
 }

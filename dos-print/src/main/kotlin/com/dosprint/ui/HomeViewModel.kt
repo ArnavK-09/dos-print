@@ -19,23 +19,12 @@ class HomeViewModel(
 
     init {
         observeHome()
-        refresh()
     }
 
     private fun observeHome() {
         viewModelScope.launch {
             container.documentRepository.favoriteDocuments.collect { documents ->
                 mutableState.update { it.copy(favoriteDocuments = documents.take(FAVORITE_LIMIT)) }
-            }
-        }
-        viewModelScope.launch {
-            container.printerRepository.printers.collect { printers ->
-                mutableState.update { it.copy(printers = printers) }
-            }
-        }
-        viewModelScope.launch {
-            container.printerRepository.defaultPrinter.collect { printer ->
-                mutableState.update { it.copy(defaultPrinter = printer) }
             }
         }
     }
@@ -59,22 +48,8 @@ class HomeViewModel(
     }
 
     fun refresh() {
-        mutableState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
-            val available = container.printerRepository.isPrintServiceAvailable()
-            val discovered = if (available) {
-                runCatching { container.printerRepository.refreshPrinters() }
-                    .getOrDefault(emptyList())
-            } else {
-                emptyList()
-            }
-            mutableState.update {
-                it.copy(
-                    isLoading = false,
-                    isPrintServiceAvailable = available,
-                    printers = discovered.ifEmpty { it.printers },
-                )
-            }
+            runCatching { container.documentRepository.load() }
         }
     }
 

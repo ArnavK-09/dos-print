@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
@@ -42,6 +43,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.dosprint.R
 import com.dosprint.core.ErrorCard
@@ -50,6 +53,7 @@ import com.dosprint.domain.model.ContentPosition
 import com.dosprint.domain.model.DuplexMode
 import com.dosprint.domain.model.ImageGap
 import com.dosprint.domain.model.ImageGridOrientation
+import com.dosprint.domain.model.ImagePageSettings
 import com.dosprint.domain.model.ImageScaling
 import com.dosprint.domain.model.ManualDuplex
 import com.dosprint.domain.model.MarginOption
@@ -82,6 +86,7 @@ import com.dosprint.ui.components.UniformToggleRow
 import com.dosprint.ui.components.ValueDropdown
 import com.dosprint.ui.setupMessage
 import com.dosprint.ui.theme.DosPrintDimens
+import java.text.NumberFormat
 import java.util.Locale
 
 @Composable
@@ -295,22 +300,17 @@ private fun ImageLayoutCard(
         marginFraction = printGrid.marginFraction,
         cellBorderFraction = state.settings.cellBorderFraction,
     )
-    val availableImageCounts = if (page.photoSize == PhotoSizePreset.AUTO) {
-        ImageCountOptions
-    } else {
-        ImageCountOptions.filter { count ->
-            page.fitsPhotoCount(
-                count = count,
-                pageAspect = state.settings.sheetAspect,
-                pageWidthInches = paper.widthInches,
-                pageHeightInches = paper.heightInches,
-                marginFraction = printGrid.marginFraction,
-                cellBorderFraction = state.settings.cellBorderFraction,
-            )
-        }
-    }
+    val availableImageCounts = supportedImageCounts(
+        page = page,
+        pageAspect = state.settings.sheetAspect,
+        pageWidthInches = paper.widthInches,
+        pageHeightInches = paper.heightInches,
+        marginFraction = printGrid.marginFraction,
+        cellBorderFraction = state.settings.cellBorderFraction,
+    )
     val photoSizeFitsPaper: (PhotoSizePreset) -> Boolean = { preset ->
         preset == PhotoSizePreset.AUTO ||
+            preset == PhotoSizePreset.CUSTOM ||
             page.copy(photoSize = preset).fitsPhotoCount(
                 count = 1,
                 pageAspect = state.settings.sheetAspect,
@@ -358,6 +358,8 @@ private fun ImageLayoutCard(
                 count,
                 optionGrid.columns,
                 optionGrid.rows,
+                formatInches(page.photoWidthInches),
+                formatInches(page.photoHeightInches),
             )
         }
     }
@@ -393,31 +395,38 @@ private fun ImageLayoutCard(
             optionLabel = photoSizeLabel,
             optionEnabled = photoSizeFitsPaper,
             onSelect = { preset ->
-                val updated = page.copy(photoSize = preset)
-                val supportedCounts = if (preset == PhotoSizePreset.AUTO) {
-                    ImageCountOptions
-                } else {
-                    ImageCountOptions.filter { count ->
-                        updated.fitsPhotoCount(
-                            count = count,
+                onChange(
+                    page.copy(photoSize = preset).withSupportedPhotoCount(
+                        pageAspect = state.settings.sheetAspect,
+                        pageWidthInches = paper.widthInches,
+                        pageHeightInches = paper.heightInches,
+                        marginFraction = printGrid.marginFraction,
+                        cellBorderFraction = state.settings.cellBorderFraction,
+                    ),
+                )
+            },
+        )
+        if (page.photoSize == PhotoSizePreset.CUSTOM) {
+            CustomPhotoSizeFields(
+                widthInches = page.customPhotoWidthInches,
+                heightInches = page.customPhotoHeightInches,
+                onSizeChange = { width, height ->
+                    onChange(
+                        page.copy(
+                            photoSize = PhotoSizePreset.CUSTOM,
+                            customPhotoWidthInches = width,
+                            customPhotoHeightInches = height,
+                        ).withSupportedPhotoCount(
                             pageAspect = state.settings.sheetAspect,
                             pageWidthInches = paper.widthInches,
                             pageHeightInches = paper.heightInches,
                             marginFraction = printGrid.marginFraction,
                             cellBorderFraction = state.settings.cellBorderFraction,
-                        )
-                    }
-                }
-                val selectedCount = if (page.imagesPerPage in supportedCounts) {
-                    page.imagesPerPage
-                } else {
-                    supportedCounts.lastOrNull { it <= page.imagesPerPage }
-                        ?: supportedCounts.lastOrNull()
-                        ?: page.imagesPerPage
-                }
-                onChange(updated.withImagesPerPage(selectedCount, state.settings.sheetAspect))
-            },
-        )
+                        ),
+                    )
+                },
+            )
+        }
         if (availableImageCounts.isEmpty() && page.photoSize != PhotoSizePreset.AUTO) {
             Text(
                 text = stringResource(R.string.image_photo_size_unavailable),
@@ -497,6 +506,126 @@ private fun ImageLayoutCard(
         }
     }
 }
+
+@Composable
+private fun CustomPhotoSizeFields(
+    widthInches: Float,
+    heightInches: Float,
+    onSizeChange: (Float, Float) -> Unit,
+) {
+    var widthText by rememberSaveable { mutableStateOf(formatInches(widthInches)) }
+    var heightText by rememberSaveable { mutableStateOf(formatInches(heightInches)) }
+    val parsedWidth = widthText.toPhotoDimensionOrNull()
+    val parsedHeight = heightText.toPhotoDimensionOrNull()
+    val validSize = parsedWidth != null && parsedHeight != null
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(DosPrintDimens.fieldGap),
+    ) {
+        OutlinedTextField(
+            value = widthText,
+            onValueChange = { value ->
+                widthText = value.take(8)
+                val nextWidth = widthText.toPhotoDimensionOrNull()
+                val nextHeight = heightText.toPhotoDimensionOrNull()
+                if (nextWidth != null && nextHeight != null) {
+                    onSizeChange(nextWidth, nextHeight)
+                }
+            },
+            modifier = Modifier.weight(1f),
+            label = { Text(stringResource(R.string.image_custom_width)) },
+            isError = !validSize,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+            singleLine = true,
+        )
+        OutlinedTextField(
+            value = heightText,
+            onValueChange = { value ->
+                heightText = value.take(8)
+                val nextWidth = widthText.toPhotoDimensionOrNull()
+                val nextHeight = heightText.toPhotoDimensionOrNull()
+                if (nextWidth != null && nextHeight != null) {
+                    onSizeChange(nextWidth, nextHeight)
+                }
+            },
+            modifier = Modifier.weight(1f),
+            label = { Text(stringResource(R.string.image_custom_height)) },
+            isError = !validSize,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+            singleLine = true,
+        )
+    }
+    Text(
+        text = stringResource(
+            if (validSize) R.string.image_custom_size_hint else R.string.image_custom_size_invalid,
+        ),
+        style = MaterialTheme.typography.bodySmall,
+        color = if (validSize) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+    )
+}
+
+private fun supportedImageCounts(
+    page: ImagePageSettings,
+    pageAspect: Float,
+    pageWidthInches: Float,
+    pageHeightInches: Float,
+    marginFraction: Float,
+    cellBorderFraction: Float,
+): List<Int> = if (page.photoSize == PhotoSizePreset.AUTO) {
+    ImageCountOptions
+} else {
+    ImageCountOptions.filter { count ->
+        page.fitsPhotoCount(
+            count = count,
+            pageAspect = pageAspect,
+            pageWidthInches = pageWidthInches,
+            pageHeightInches = pageHeightInches,
+            marginFraction = marginFraction,
+            cellBorderFraction = cellBorderFraction,
+        )
+    }
+}
+
+private fun ImagePageSettings.withSupportedPhotoCount(
+    pageAspect: Float,
+    pageWidthInches: Float,
+    pageHeightInches: Float,
+    marginFraction: Float,
+    cellBorderFraction: Float,
+): ImagePageSettings {
+    val supportedCounts = supportedImageCounts(
+        page = this,
+        pageAspect = pageAspect,
+        pageWidthInches = pageWidthInches,
+        pageHeightInches = pageHeightInches,
+        marginFraction = marginFraction,
+        cellBorderFraction = cellBorderFraction,
+    )
+    val selectedCount = when {
+        supportedCounts.isEmpty() -> imagesPerPage
+        imagesPerPage in supportedCounts -> imagesPerPage
+        else -> supportedCounts.lastOrNull { it <= imagesPerPage } ?: supportedCounts.last()
+    }
+    return withImagesPerPage(selectedCount, pageAspect)
+}
+
+private fun String.toPhotoDimensionOrNull(): Float? =
+    trim()
+        .replace(',', '.')
+        .toFloatOrNull()
+        ?.takeIf {
+            it.isFinite() &&
+                it in ImagePageSettings.MIN_CUSTOM_PHOTO_DIMENSION_INCHES..ImagePageSettings.MAX_CUSTOM_PHOTO_DIMENSION_INCHES
+        }
+
+private fun formatInches(value: Float): String = NumberFormat.getNumberInstance(Locale.getDefault())
+    .apply {
+        minimumFractionDigits = 0
+        maximumFractionDigits = 2
+        isGroupingUsed = false
+    }
+    .format(value.toDouble())
 
 @Composable
 private fun ImageGridOrientationOption(

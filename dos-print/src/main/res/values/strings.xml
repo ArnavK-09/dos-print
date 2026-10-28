@@ -243,10 +243,11 @@
     </plurals>
     <string name="setup_live_preview_inspect">Open the full sheet preview</string>
     <string name="home_choose_flow">What would you like to print?</string>
-    <string name="home_flow_photos">Photos and images</string>
-    <string name="home_flow_photos_subtitle">Choose photos, then choose how many go on each sheet and how they are sized</string>
+    <string name="home_welcome_body">Choose photos or a document, then adjust the layout and preview before printing.</string>
+    <string name="home_flow_photos">Photos</string>
+    <string name="home_flow_photos_subtitle">Set a print size and arrange photos on each sheet.</string>
     <string name="home_flow_documents">Documents</string>
-    <string name="home_flow_documents_subtitle">PDFs, Office files and text, with pages per sheet, order and duplex</string>
+    <string name="home_flow_documents_subtitle">Choose pages, paper and print options.</string>
     <string name="printer_online">Online</string>
     <string name="printer_busy">Busy</string>
     <string name="printer_offline">Offline</string>
@@ -267,10 +268,14 @@
     <string name="image_section_subtitle">Photos are placed automatically, so these decide how they fill the sheet</string>
     <string name="image_per_page">Images per page</string>
     <string name="image_count_option">%1$d | %2$d × %3$d (%4$s × %5$s in)</string>
-    <string name="image_count_option_fixed">%1$d | %2$d × %3$d</string>
+    <string name="image_count_option_fixed">%1$d | %2$d × %3$d (%4$s × %5$s in)</string>
     <string name="image_photo_size">Photo print size</string>
-    <string name="image_photo_size_unavailable">This size does not fit the selected paper. Choose a larger paper or Automatic.</string>
+    <string name="image_photo_size_unavailable">This size does not fit the selected paper. Choose a smaller size, larger paper, or Automatic.</string>
     <string name="image_photo_size_unavailable_option">%1$s · does not fit</string>
+    <string name="image_custom_width">Width (in)</string>
+    <string name="image_custom_height">Height (in)</string>
+    <string name="image_custom_size_hint">Set the printed photo dimensions. The preview updates when both values are valid.</string>
+    <string name="image_custom_size_invalid">Enter a width and height from 0.01 to 100 inches.</string>
     <string name="image_grid_direction">Grid direction</string>
     <string name="image_arrangement_auto">Automatic</string>
     <string name="image_arrangement_side_by_side">Side by side</string>
