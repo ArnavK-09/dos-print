@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 
 class InteractiveHighlight(
     val animationScope: CoroutineScope,
-    val position: (size: Size, offset: Offset) -> Offset = { _, offset -> offset }
+    val position: (size: Size, offset: Offset) -> Offset = { _, offset -> offset },
 ) {
 
     private val pressProgressAnimationSpec =
@@ -51,7 +51,7 @@ half4 main(float2 coord) {
     float dist = distance(coord, position);
     float intensity = smoothstep(radius, radius * 0.5, dist);
     return color * intensity;
-}"""
+}""",
             )
         } else {
             null
@@ -64,7 +64,7 @@ half4 main(float2 coord) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && shader != null) {
                     drawRect(
                         Color.White.copy(0.08f * progress),
-                        blendMode = BlendMode.Plus
+                        blendMode = BlendMode.Plus,
                     )
                     shader.apply {
                         val position = position(size, positionAnimation.value)
@@ -74,17 +74,17 @@ half4 main(float2 coord) {
                         setFloatUniform(
                             "position",
                             position.x.fastCoerceIn(0f, size.width),
-                            position.y.fastCoerceIn(0f, size.height)
+                            position.y.fastCoerceIn(0f, size.height),
                         )
                     }
                     drawRect(
                         ShaderBrush(shader),
-                        blendMode = BlendMode.Plus
+                        blendMode = BlendMode.Plus,
                     )
                 } else {
                     drawRect(
                         Color.White.copy(0.25f * progress),
-                        blendMode = BlendMode.Plus
+                        blendMode = BlendMode.Plus,
                     )
                 }
             }
@@ -113,7 +113,7 @@ half4 main(float2 coord) {
                         launch { pressProgressAnimation.animateTo(0f, pressProgressAnimationSpec) }
                         launch { positionAnimation.animateTo(startPosition, positionAnimationSpec) }
                     }
-                }
+                },
             ) { change, _ ->
                 animationScope.launch { positionAnimation.snapTo(change.position) }
             }

@@ -310,14 +310,15 @@ private fun ImageLayoutCard(
         }
     }
     val photoSizeFitsPaper: (PhotoSizePreset) -> Boolean = { preset ->
-        preset == PhotoSizePreset.AUTO || page.copy(photoSize = preset).fitsPhotoCount(
-            count = 1,
-            pageAspect = state.settings.sheetAspect,
-            pageWidthInches = paper.widthInches,
-            pageHeightInches = paper.heightInches,
-            marginFraction = printGrid.marginFraction,
-            cellBorderFraction = state.settings.cellBorderFraction,
-        )
+        preset == PhotoSizePreset.AUTO ||
+            page.copy(photoSize = preset).fitsPhotoCount(
+                count = 1,
+                pageAspect = state.settings.sheetAspect,
+                pageWidthInches = paper.widthInches,
+                pageHeightInches = paper.heightInches,
+                marginFraction = printGrid.marginFraction,
+                cellBorderFraction = state.settings.cellBorderFraction,
+            )
     }
     val photoSizeLabel: (PhotoSizePreset) -> String = { preset ->
         if (!photoSizeFitsPaper(preset)) {

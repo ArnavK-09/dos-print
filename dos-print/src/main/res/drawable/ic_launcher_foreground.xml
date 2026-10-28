@@ -5,13 +5,13 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group
-        android:scaleX="0.8"
-        android:scaleY="0.8"
-        android:translateX="10.8"
-        android:translateY="10.8">
+        android:scaleX="0.56"
+        android:scaleY="0.56"
+        android:translateX="23.76"
+        android:translateY="23.76">
         <path
             android:fillColor="#00000000"
-            android:pathData="M36,23h28l8,8v18H36zM64,23v8h8M42,35h20M42,41h16M32,45h44a6,6 0,0 1,6 6v12H26V51a6,6 0,0 1,6 -6zM32,62h44v23H32zM38,70h32M38,77h23M74,53m-2.5,0a2.5,2.5 0,1 0,5 0a2.5,2.5 0,1 0,-5 0"
+            android:pathData="M36,16h24l12,12v22H36zM60,16v12h12M41,31h26v14H41zM43,43l6 -6 5 5 6 -6 5 7M62,34m-2,0a2,2 0,1 0,4 0a2,2 0,1 0,-4 0M31,50h46a8,8 0,0 1,8 8v14H23V58a8,8 0,0 1,8 -8zM33,70h42v23H33zM40,78h28M40,85h20M78,60m-2,0a2,2 0,1 0,4 0a2,2 0,1 0,-4 0"
             android:strokeColor="#FFFFFFFF"
             android:strokeLineCap="round"
             android:strokeLineJoin="round"
