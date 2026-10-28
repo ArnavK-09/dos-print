@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="supported_print_mime_types">
+        <item>application/pdf</item>
+        <item>image/*</item>
+        <item>text/plain</item>
+        <item>text/*</item>
+        <item>application/msword</item>
+        <item>application/vnd.openxmlformats-officedocument.wordprocessingml.document</item>
+        <item>application/vnd.ms-excel</item>
+        <item>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</item>
+        <item>application/vnd.ms-powerpoint</item>
+        <item>application/vnd.openxmlformats-officedocument.presentationml.presentation</item>
+        <item>application/rtf</item>
+        <item>application/vnd.oasis.opendocument.text</item>
+        <item>application/vnd.oasis.opendocument.spreadsheet</item>
+        <item>application/vnd.oasis.opendocument.presentation</item>
+        <item>application/epub+zip</item>
+        <item>application/postscript</item>
+        <item>application/x-postscript</item>
+        <item>application/json</item>
+        <item>application/xml</item>
+    </string-array>
+</resources>

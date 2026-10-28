@@ -1,0 +1,13 @@
+.toolchain/
+.gradle/
+**/build/
+build-outputs/
+local.properties
+.idea/
+*.iml
+.DS_Store
+*.jks
+*.keystore
+dos-print/config/signing/signing.properties
+nokoprint-reference/
+com.nokoprint-5.28.4.apk
