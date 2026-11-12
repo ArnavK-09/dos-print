@@ -1,5 +1,12 @@
 package com.dosprint.ui.screens
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -8,22 +15,24 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -54,7 +63,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dosprint.R
 import com.dosprint.ui.PreviewAction
@@ -118,11 +129,16 @@ fun PreviewScreen(
                         }
                     },
                 )
-                !state.hasSheets && state.isRendering -> PreviewLoading()
-                !state.hasSheets -> EmptyState(
-                    title = stringResource(R.string.preview_generating),
-                    body = stringResource(R.string.preview_generating_hint),
+                state.documents.isEmpty() -> EmptyState(
+                    title = stringResource(R.string.empty_no_documents_title),
+                    body = stringResource(R.string.empty_no_documents_body),
+                    action = {
+                        TextButton(onClick = { onAction(PreviewAction.BackToSetup) }) {
+                            Text(stringResource(R.string.action_back))
+                        }
+                    },
                 )
+                !state.hasSheets -> PreviewSkeleton()
                 else -> SheetViewer(
                     state = state,
                     zoom = zoom,
@@ -231,20 +247,69 @@ private fun ZoomControls(
 }
 
 @Composable
-private fun PreviewLoading() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
+private fun PreviewSkeleton() {
+    val transition = rememberInfiniteTransition(label = "previewSkeleton")
+    val alpha by transition.animateFloat(
+        initialValue = SkeletonAlphaMin,
+        targetValue = SkeletonAlphaMax,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = SkeletonPulseMillis, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "previewSkeletonAlpha",
+    )
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(DosPrintDimens.space16),
         contentAlignment = Alignment.Center,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(modifier = Modifier.size(DosPrintDimens.space40))
+        val sheetWidth = minOf(
+            maxHeight * SkeletonHeightFraction * SheetAspectRatio,
+            maxWidth * SkeletonWidthFraction,
+        )
+        val sheetHeight = sheetWidth / SheetAspectRatio
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(DosPrintDimens.fieldGap),
+        ) {
+            Surface(
+                modifier = Modifier.size(sheetWidth, sheetHeight),
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(DosPrintDimens.sheetCorner),
+                border = BorderStroke(DosPrintDimens.hairline, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                Column(
+                    modifier = Modifier.padding(DosPrintDimens.space16),
+                    verticalArrangement = Arrangement.spacedBy(DosPrintDimens.space8),
+                ) {
+                    SkeletonBar(widthFraction = 0.62f, height = 12.dp, alpha = alpha)
+                    SkeletonBar(widthFraction = 1f, height = 8.dp, alpha = alpha * SkeletonLineAlphaScale)
+                    SkeletonBar(widthFraction = 0.86f, height = 8.dp, alpha = alpha * SkeletonLineAlphaScale)
+                    SkeletonBar(widthFraction = 1f, height = 8.dp, alpha = alpha * SkeletonLineAlphaScale)
+                    Spacer(modifier = Modifier.height(DosPrintDimens.space8))
+                    SkeletonBar(widthFraction = 0.7f, height = 8.dp, alpha = alpha * SkeletonLineAlphaScale)
+                    SkeletonBar(widthFraction = 0.94f, height = 8.dp, alpha = alpha * SkeletonLineAlphaScale)
+                }
+            }
             Text(
                 text = stringResource(R.string.preview_generating),
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = DosPrintDimens.fieldGap),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
+}
+
+@Composable
+private fun SkeletonBar(widthFraction: Float, height: Dp, alpha: Float) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(widthFraction)
+            .height(height)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)),
+    )
 }
 
 @Composable
@@ -258,7 +323,7 @@ private fun SheetViewer(
     onReset: () -> Unit,
 ) {
     val sheet = state.currentSheet ?: run {
-        PreviewLoading()
+        PreviewSkeleton()
         return
     }
     val currentZoom = rememberUpdatedState(zoom)
@@ -429,6 +494,15 @@ private fun PreviewSummaryBar(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+            if (state.canPrint) {
+                Text(
+                    text = stringResource(R.string.preview_choose_output),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             UniformButtonRow(
                 buttons = listOf(
                     UniformButton(
@@ -442,7 +516,14 @@ private fun PreviewSummaryBar(
                         onClick = { onAction(PreviewAction.OpenSetup) },
                     ),
                     UniformButton(
-                        label = stringResource(R.string.setup_print),
+                        label = stringResource(R.string.preview_save_pdf),
+                        icon = DosPrintIcons.Pdf,
+                        onClick = { onAction(PreviewAction.SavePdf) },
+                        enabled = state.canPrint,
+                        emphasized = true,
+                    ),
+                    UniformButton(
+                        label = stringResource(R.string.output_android_print),
                         icon = DosPrintIcons.Printer,
                         onClick = { onAction(PreviewAction.Print) },
                         enabled = state.canPrint,
@@ -468,3 +549,10 @@ private const val MaxZoom = 4f
 private val PageSwipeThreshold = 72.dp
 private const val SwipeAxisRatio = 1.2f
 private val ZoomLabelWidth = 56.dp
+private const val SheetAspectRatio = 0.707f
+private const val SkeletonAlphaMin = 0.12f
+private const val SkeletonAlphaMax = 0.3f
+private const val SkeletonLineAlphaScale = 0.75f
+private const val SkeletonPulseMillis = 900
+private const val SkeletonHeightFraction = 0.72f
+private const val SkeletonWidthFraction = 0.8f

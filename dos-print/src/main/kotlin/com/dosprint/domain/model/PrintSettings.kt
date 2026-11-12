@@ -57,18 +57,16 @@ data class PrintSettings(
         }
 
     val layoutGrid: LayoutGrid
-        get() = if (borderless || marginPreset == MarginPreset.NONE) {
-            LayoutGrid.forSlots(
+        get() {
+            val marginFraction = when {
+                borderless || marginPreset == MarginPreset.NONE -> 0f
+                marginPreset == MarginPreset.MINIMUM -> MinimumMarginFraction
+                else -> gridMarginFraction
+            }
+            return LayoutGrid.forSlots(
                 slots = pagesPerSheet,
                 pageAspect = sheetAspect,
-                marginFraction = 0f,
-                gutterFraction = gridGutterFraction,
-            ).copy(cellBorderFraction = cellBorderFraction)
-        } else {
-            LayoutGrid.forSlots(
-                slots = pagesPerSheet,
-                pageAspect = sheetAspect,
-                marginFraction = gridMarginFraction,
+                marginFraction = marginFraction,
                 gutterFraction = gridGutterFraction,
             ).copy(cellBorderFraction = cellBorderFraction)
         }
@@ -81,15 +79,18 @@ data class PrintSettings(
         }
 
     fun withClampedValues(): PrintSettings {
-        val clampedImagePage = imagePageSettings
-            .withSafeCustomPhotoSize()
-            .withImagesPerPage(imagePageSettings.imagesPerPage, sheetAspect)
+        val paper = effectivePaper
         val effectiveMargin = if (borderless || marginPreset == MarginPreset.NONE) {
             0f
         } else {
-            gridMarginFraction.coerceIn(0f, 0.2f)
+            layoutGrid.marginFraction
         }
-        val paper = effectivePaper
+        val clampedImagePage = imagePageSettings
+            .withSafeCustomPhotoSize(
+                maxWidthInches = paper.widthInches * (1f - 2f * effectiveMargin),
+                maxHeightInches = paper.heightInches * (1f - 2f * effectiveMargin),
+            )
+            .withImagesPerPage(imagePageSettings.imagesPerPage, sheetAspect)
         val fittingCount = if (clampedImagePage.photoSize == PhotoSizePreset.AUTO) {
             null
         } else {
@@ -104,6 +105,7 @@ data class PrintSettings(
                         cellBorderFraction = cellBorderFraction,
                     )
                 }
+                ?: ImagePageSettings.MIN_IMAGES_PER_PAGE
         }
         val safeImagePage = if (fittingCount == null) {
             clampedImagePage
@@ -144,6 +146,7 @@ data class PrintSettings(
         const val MAX_COPIES = 99
         const val MIN_SCALE_PERCENT = 10
         const val MAX_SCALE_PERCENT = 400
+        const val MinimumMarginFraction = 0.015f
         fun samePaper(first: PaperSize, second: PaperSize, toleranceMils: Int = 750): Boolean =
             abs(first.widthMils - second.widthMils) <= toleranceMils &&
                 abs(first.heightMils - second.heightMils) <= toleranceMils

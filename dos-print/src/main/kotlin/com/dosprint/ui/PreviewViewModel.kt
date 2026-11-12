@@ -65,6 +65,7 @@ class PreviewViewModel(
                         currentSheetIndex = if (changed) 0 else current.currentSheetIndex,
                         totalSheets = if (changed) 0 else current.totalSheets,
                         renderedSheets = if (changed) emptyList() else current.renderedSheets,
+                        errorMessage = if (changed) null else current.errorMessage,
                     )
                 }
                 if (renderWidthPx > 0) {
@@ -88,7 +89,19 @@ class PreviewViewModel(
 
     private fun renderSheet(index: Int, widthPx: Int = renderWidthPx) {
         val snapshot = mutableState.value
-        if (snapshot.documents.isEmpty() || widthPx <= 0) {
+        if (snapshot.documents.isEmpty()) {
+            renderJob?.cancel()
+            mutableState.update {
+                it.copy(
+                    isRendering = false,
+                    renderedSheets = emptyList(),
+                    totalSheets = 0,
+                    errorMessage = null,
+                )
+            }
+            return
+        }
+        if (widthPx <= 0) {
             return
         }
         renderJob?.cancel()
@@ -152,7 +165,8 @@ class PreviewViewModel(
             PreviewAction.NextSheet -> moveSheet(1)
             PreviewAction.PreviousSheet -> moveSheet(-1)
             is PreviewAction.GoToSheet -> renderSheet(action.index)
-            PreviewAction.Print -> submitPrint()
+            PreviewAction.Print -> Unit
+            PreviewAction.SavePdf -> Unit
             PreviewAction.BackToSetup -> Unit
             PreviewAction.OpenSetup -> Unit
             PreviewAction.DismissError -> mutableState.update { it.copy(errorMessage = null) }
@@ -162,27 +176,6 @@ class PreviewViewModel(
     private fun moveSheet(delta: Int) {
         val current = mutableState.value
         renderSheet((current.currentSheetIndex + delta).coerceIn(0, (current.totalSheets - 1).coerceAtLeast(0)))
-    }
-
-    private fun submitPrint() {
-        viewModelScope.launch {
-            val printer = mutableState.value.printer ?: PrinterProfile.PdfDestination
-            val documents = mutableState.value.documents
-            if (documents.isEmpty()) {
-                return@launch
-            }
-            val capabilities = when (val outcome = container.printerRepository.capabilitiesFor(printer.id)) {
-                is Outcome.Success -> outcome.value
-                is Outcome.Failure -> com.dosprint.domain.model.PrinterCapabilities.Unknown.copy(printerId = printer.id)
-            }
-            container.printRepository.submit(
-                documents = documents,
-                printer = printer,
-                capabilities = capabilities,
-                settings = mutableState.value.settings,
-                jobId = java.util.UUID.randomUUID().toString(),
-            )
-        }
     }
 
     override fun onCleared() {

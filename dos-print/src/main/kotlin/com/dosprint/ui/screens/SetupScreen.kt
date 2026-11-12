@@ -19,12 +19,15 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -41,27 +44,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.dosprint.R
 import com.dosprint.core.ErrorCard
 import com.dosprint.domain.model.ColorMode
-import com.dosprint.domain.model.ContentPosition
 import com.dosprint.domain.model.DuplexMode
 import com.dosprint.domain.model.ImageGap
 import com.dosprint.domain.model.ImageGridOrientation
 import com.dosprint.domain.model.ImagePageSettings
 import com.dosprint.domain.model.ImageScaling
 import com.dosprint.domain.model.ManualDuplex
-import com.dosprint.domain.model.MarginOption
 import com.dosprint.domain.model.MarginPreset
 import com.dosprint.domain.model.PageOrder
 import com.dosprint.domain.model.PagePosition
 import com.dosprint.domain.model.PageRotation
-import com.dosprint.domain.model.PageScaling
 import com.dosprint.domain.model.PageSelectionMode
 import com.dosprint.domain.model.PaperSize
 import com.dosprint.domain.model.PhotoBorder
@@ -155,6 +153,7 @@ fun SetupScreen(
                     ImageLayoutCard(
                         state = state,
                         onChange = onImagePage,
+                        onMarginsChange = { onAction(SetupAction.SelectMarginPreset(it)) },
                         expanded = imageLayoutExpanded,
                         onExpandedChange = { imageLayoutExpanded = it },
                     )
@@ -263,13 +262,6 @@ private fun PaperCard(
             optionLabel = { if (it) ORIENTATION_LANDSCAPE else ORIENTATION_PORTRAIT },
             onSelect = { onAction(SetupAction.ToggleLandscape(it)) },
         )
-        SettingDropdown(
-            label = stringResource(R.string.setup_margins),
-            options = MarginPreset.entries,
-            selected = state.settings.marginPreset,
-            optionLabel = { it.label },
-            onSelect = { onAction(SetupAction.SelectMarginPreset(it)) },
-        )
         SettingRow(
             label = stringResource(if (state.isImageMode) R.string.image_copies else R.string.setup_copies),
         ) {
@@ -286,13 +278,18 @@ private fun PaperCard(
 private fun ImageLayoutCard(
     state: SetupUiState,
     onChange: (com.dosprint.domain.model.ImagePageSettings) -> Unit,
+    onMarginsChange: (MarginPreset) -> Unit,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
 ) {
     val page = state.imagePage
+    val manualPhotoSize = page.photoSize == PhotoSizePreset.CUSTOM
+    val photoScalingLabel = if (manualPhotoSize) ImageScaling.STRETCH_TO_FIT.label else page.scaling.label
     val context = LocalContext.current
     val paper = state.settings.effectivePaper
     val printGrid = state.settings.layoutGrid
+    val maxPhotoWidthInches = paper.widthInches * (1f - 2f * printGrid.marginFraction)
+    val maxPhotoHeightInches = paper.heightInches * (1f - 2f * printGrid.marginFraction)
     val grid = page.layoutGridFor(
         pageAspect = state.settings.sheetAspect,
         pageWidthInches = paper.widthInches,
@@ -308,25 +305,6 @@ private fun ImageLayoutCard(
         marginFraction = printGrid.marginFraction,
         cellBorderFraction = state.settings.cellBorderFraction,
     )
-    val photoSizeFitsPaper: (PhotoSizePreset) -> Boolean = { preset ->
-        preset == PhotoSizePreset.AUTO ||
-            preset == PhotoSizePreset.CUSTOM ||
-            page.copy(photoSize = preset).fitsPhotoCount(
-                count = 1,
-                pageAspect = state.settings.sheetAspect,
-                pageWidthInches = paper.widthInches,
-                pageHeightInches = paper.heightInches,
-                marginFraction = printGrid.marginFraction,
-                cellBorderFraction = state.settings.cellBorderFraction,
-            )
-    }
-    val photoSizeLabel: (PhotoSizePreset) -> String = { preset ->
-        if (!photoSizeFitsPaper(preset)) {
-            context.getString(R.string.image_photo_size_unavailable_option, preset.label)
-        } else {
-            preset.label
-        }
-    }
     val borderSummary = stringResource(R.string.image_border_status, page.border.label)
     val imageCountLabel: (Int) -> String = { count ->
         val optionPage = page.withImagesPerPage(count, state.settings.sheetAspect)
@@ -366,14 +344,21 @@ private fun ImageLayoutCard(
     DosPrintSection(
         title = stringResource(R.string.image_section_title),
         subtitle = if (page.usesGrid) {
-            "$borderSummary · ${stringResource(R.string.image_grid_size_summary, page.imagesPerPage)} · ${grid.columns} × ${grid.rows} · ${page.scaling.label}"
+            "$borderSummary · ${state.settings.marginPreset.label} · ${stringResource(R.string.image_grid_size_summary, page.imagesPerPage)} · ${grid.columns} × ${grid.rows} · $photoScalingLabel"
         } else {
-            "$borderSummary · 1 per sheet · ${page.scaling.label}"
+            "$borderSummary · ${state.settings.marginPreset.label} · 1 per sheet · $photoScalingLabel"
         },
         icon = DosPrintIcons.Image,
         expanded = expanded,
         onExpandedChange = onExpandedChange,
     ) {
+        SettingDropdown(
+            label = stringResource(R.string.setup_margins),
+            options = MarginPreset.entries,
+            selected = state.settings.marginPreset,
+            optionLabel = { it.label },
+            onSelect = onMarginsChange,
+        )
         SettingDropdown(
             label = stringResource(R.string.image_border),
             options = PhotoBorder.entries,
@@ -388,15 +373,13 @@ private fun ImageLayoutCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        SettingDropdown(
-            label = stringResource(R.string.image_photo_size),
-            options = PhotoSizePreset.entries,
-            selected = page.photoSize,
-            optionLabel = photoSizeLabel,
-            optionEnabled = photoSizeFitsPaper,
-            onSelect = { preset ->
+        ManualPhotoSizeToggle(
+            checked = manualPhotoSize,
+            onCheckedChange = { enabled ->
                 onChange(
-                    page.copy(photoSize = preset).withSupportedPhotoCount(
+                    page.copy(
+                        photoSize = if (enabled) PhotoSizePreset.CUSTOM else PhotoSizePreset.AUTO,
+                    ).withSupportedPhotoCount(
                         pageAspect = state.settings.sheetAspect,
                         pageWidthInches = paper.widthInches,
                         pageHeightInches = paper.heightInches,
@@ -406,10 +389,12 @@ private fun ImageLayoutCard(
                 )
             },
         )
-        if (page.photoSize == PhotoSizePreset.CUSTOM) {
+        if (manualPhotoSize) {
             CustomPhotoSizeFields(
                 widthInches = page.customPhotoWidthInches,
                 heightInches = page.customPhotoHeightInches,
+                maxWidthInches = maxPhotoWidthInches,
+                maxHeightInches = maxPhotoHeightInches,
                 onSizeChange = { width, height ->
                     onChange(
                         page.copy(
@@ -442,39 +427,55 @@ private fun ImageLayoutCard(
                 optionLabel = imageCountLabel,
                 onSelect = { onChange(page.withImagesPerPage(it, state.settings.sheetAspect)) },
             )
-        }
-        if (page.imagesPerPage > 1) {
             Text(
-                text = stringResource(R.string.image_grid_direction),
-                style = MaterialTheme.typography.bodyMedium,
+                text = stringResource(R.string.image_per_page_summary),
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(DosPrintDimens.fieldGap),
-            ) {
-                ImageGridOrientation.entries.forEach { orientation ->
-                    ImageGridOrientationOption(
-                        orientation = orientation,
-                        selected = page.gridOrientation == orientation,
-                        label = when (orientation) {
-                            ImageGridOrientation.AUTO -> stringResource(R.string.image_arrangement_auto)
-                            ImageGridOrientation.SIDE_BY_SIDE -> stringResource(R.string.image_arrangement_side_by_side)
-                            ImageGridOrientation.STACKED -> stringResource(R.string.image_arrangement_stacked)
-                        },
-                        onClick = { onChange(page.copy(gridOrientation = orientation)) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+        }
+        Text(
+            text = stringResource(R.string.image_grid_direction),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(DosPrintDimens.fieldGap),
+        ) {
+            ImageGridOrientation.entries.forEach { orientation ->
+                ImageGridOrientationOption(
+                    orientation = orientation,
+                    selected = page.gridOrientation == orientation,
+                    label = when (orientation) {
+                        ImageGridOrientation.AUTO -> stringResource(R.string.image_arrangement_auto)
+                        ImageGridOrientation.SIDE_BY_SIDE -> stringResource(R.string.image_arrangement_side_by_side)
+                        ImageGridOrientation.STACKED -> stringResource(R.string.image_arrangement_stacked)
+                    },
+                    onClick = { onChange(page.copy(gridOrientation = orientation)) },
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
-        SettingDropdown(
-            label = stringResource(R.string.image_scaling),
-            options = ImageScaling.entries,
-            selected = page.scaling,
-            optionLabel = { it.label },
-            onSelect = { onChange(page.copy(scaling = it)) },
+        Text(
+            text = stringResource(R.string.image_grid_direction_summary),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (manualPhotoSize) {
+            Text(
+                text = stringResource(R.string.image_custom_size_exact),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            SettingDropdown(
+                label = stringResource(R.string.image_scaling),
+                options = ImageScaling.entries,
+                selected = page.scaling,
+                optionLabel = { it.label },
+                onSelect = { onChange(page.copy(scaling = it)) },
+            )
+        }
         SettingDropdown(
             label = stringResource(R.string.image_rotation),
             options = PageRotation.entries,
@@ -489,14 +490,14 @@ private fun ImageLayoutCard(
             optionLabel = { it.label },
             onSelect = { onChange(page.copy(position = it)) },
         )
+        SettingDropdown(
+            label = stringResource(R.string.image_gaps),
+            options = ImageGap.entries,
+            selected = page.gap,
+            optionLabel = { it.label },
+            onSelect = { onChange(page.copy(gap = it)) },
+        )
         if (page.usesGrid) {
-            SettingDropdown(
-                label = stringResource(R.string.image_gaps),
-                options = ImageGap.entries,
-                selected = page.gap,
-                optionLabel = { it.label },
-                onSelect = { onChange(page.copy(gap = it)) },
-            )
             UniformToggleRow(
                 label = stringResource(R.string.image_compact_group),
                 summary = stringResource(R.string.image_compact_group_summary),
@@ -508,15 +509,50 @@ private fun ImageLayoutCard(
 }
 
 @Composable
+private fun ManualPhotoSizeToggle(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(DosPrintDimens.controlCorner))
+            .toggleable(
+                value = checked,
+                role = Role.Checkbox,
+                onValueChange = onCheckedChange,
+            )
+            .padding(vertical = DosPrintDimens.space4),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(DosPrintDimens.fieldGap),
+    ) {
+        Checkbox(checked = checked, onCheckedChange = null)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.image_manual_size),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                text = stringResource(R.string.image_manual_size_summary),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
 private fun CustomPhotoSizeFields(
     widthInches: Float,
     heightInches: Float,
+    maxWidthInches: Float,
+    maxHeightInches: Float,
     onSizeChange: (Float, Float) -> Unit,
 ) {
-    var widthText by rememberSaveable { mutableStateOf(formatInches(widthInches)) }
-    var heightText by rememberSaveable { mutableStateOf(formatInches(heightInches)) }
-    val parsedWidth = widthText.toPhotoDimensionOrNull()
-    val parsedHeight = heightText.toPhotoDimensionOrNull()
+    var widthText by rememberSaveable(maxWidthInches, maxHeightInches) { mutableStateOf(formatInches(widthInches)) }
+    var heightText by rememberSaveable(maxWidthInches, maxHeightInches) { mutableStateOf(formatInches(heightInches)) }
+    val parsedWidth = widthText.toPhotoDimensionOrNull(maxWidthInches)
+    val parsedHeight = heightText.toPhotoDimensionOrNull(maxHeightInches)
     val validSize = parsedWidth != null && parsedHeight != null
 
     Row(
@@ -527,8 +563,8 @@ private fun CustomPhotoSizeFields(
             value = widthText,
             onValueChange = { value ->
                 widthText = value.take(8)
-                val nextWidth = widthText.toPhotoDimensionOrNull()
-                val nextHeight = heightText.toPhotoDimensionOrNull()
+                val nextWidth = widthText.toPhotoDimensionOrNull(maxWidthInches)
+                val nextHeight = heightText.toPhotoDimensionOrNull(maxHeightInches)
                 if (nextWidth != null && nextHeight != null) {
                     onSizeChange(nextWidth, nextHeight)
                 }
@@ -543,8 +579,8 @@ private fun CustomPhotoSizeFields(
             value = heightText,
             onValueChange = { value ->
                 heightText = value.take(8)
-                val nextWidth = widthText.toPhotoDimensionOrNull()
-                val nextHeight = heightText.toPhotoDimensionOrNull()
+                val nextWidth = widthText.toPhotoDimensionOrNull(maxWidthInches)
+                val nextHeight = heightText.toPhotoDimensionOrNull(maxHeightInches)
                 if (nextWidth != null && nextHeight != null) {
                     onSizeChange(nextWidth, nextHeight)
                 }
@@ -557,9 +593,15 @@ private fun CustomPhotoSizeFields(
         )
     }
     Text(
-        text = stringResource(
-            if (validSize) R.string.image_custom_size_hint else R.string.image_custom_size_invalid,
-        ),
+        text = if (validSize) {
+            stringResource(R.string.image_custom_size_hint)
+        } else {
+            stringResource(
+                R.string.image_custom_size_invalid,
+                formatInches(maxWidthInches),
+                formatInches(maxHeightInches),
+            )
+        },
         style = MaterialTheme.typography.bodySmall,
         color = if (validSize) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
     )
@@ -603,20 +645,20 @@ private fun ImagePageSettings.withSupportedPhotoCount(
         cellBorderFraction = cellBorderFraction,
     )
     val selectedCount = when {
-        supportedCounts.isEmpty() -> imagesPerPage
+        supportedCounts.isEmpty() -> ImagePageSettings.MIN_IMAGES_PER_PAGE
         imagesPerPage in supportedCounts -> imagesPerPage
         else -> supportedCounts.lastOrNull { it <= imagesPerPage } ?: supportedCounts.last()
     }
     return withImagesPerPage(selectedCount, pageAspect)
 }
 
-private fun String.toPhotoDimensionOrNull(): Float? =
+private fun String.toPhotoDimensionOrNull(maxInches: Float): Float? =
     trim()
         .replace(',', '.')
         .toFloatOrNull()
         ?.takeIf {
             it.isFinite() &&
-                it in ImagePageSettings.MIN_CUSTOM_PHOTO_DIMENSION_INCHES..ImagePageSettings.MAX_CUSTOM_PHOTO_DIMENSION_INCHES
+                it in ImagePageSettings.MIN_CUSTOM_PHOTO_DIMENSION_INCHES..maxInches
         }
 
 private fun formatInches(value: Float): String = NumberFormat.getNumberInstance(Locale.getDefault())
@@ -713,28 +755,6 @@ private fun ImageGridOrientationDiagram(
 }
 
 @Composable
-private fun StepperButton(
-    label: String,
-    description: String,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    FilledTonalButton(
-        onClick = onClick,
-        enabled = enabled,
-        contentPadding = PaddingValues(
-            horizontal = DosPrintDimens.space16,
-            vertical = DosPrintDimens.space4,
-        ),
-        modifier = Modifier
-            .heightIn(min = DosPrintDimens.minTouchTarget)
-            .semantics { contentDescription = description },
-    ) {
-        Text(text = label, style = MaterialTheme.typography.titleMedium)
-    }
-}
-
-@Composable
 private fun <T> SettingDropdown(
     label: String,
     options: List<T>,
@@ -762,7 +782,8 @@ private fun SizeAndLayoutCard(
 ) {
     val settings = state.settings
     val summary = buildList {
-        add(settings.pageScaling.label)
+        add(settings.scaling.label)
+        add(settings.marginPreset.label)
         if (settings.pagesPerSheet > 1) add("${settings.pagesPerSheet} per sheet")
     }.joinToString(" · ")
     DosPrintSection(
@@ -773,51 +794,27 @@ private fun SizeAndLayoutCard(
         onExpandedChange = onExpandedChange,
     ) {
         SettingDropdown(
-            label = stringResource(R.string.page_scaling),
-            options = PageScaling.entries,
-            selected = settings.pageScaling,
+            label = stringResource(R.string.setup_scaling),
+            options = ScalingMode.entries,
+            selected = settings.scaling,
             optionLabel = { it.label },
-            onSelect = { onAction(SetupAction.SelectPageScaling(it)) },
-        )
-        if (settings.pageScaling.usesCustomPercent) {
-            ValueStepper(
-                label = stringResource(R.string.scale_percent),
-                value = settings.scalePercent.toString(),
-                onDecrement = { onAction(SetupAction.SetScalePercent(settings.scalePercent - ScaleStep)) },
-                onIncrement = { onAction(SetupAction.SetScalePercent(settings.scalePercent + ScaleStep)) },
-                onDecrementDescription = stringResource(R.string.scale_percent_down),
-                onIncrementDescription = stringResource(R.string.scale_percent_up),
-            )
-        }
-        SettingDropdown(
-            label = stringResource(R.string.setup_orientation),
-            options = listOf(false, true),
-            selected = settings.landscape,
-            optionLabel = { if (it) ORIENTATION_LANDSCAPE else ORIENTATION_PORTRAIT },
-            onSelect = { onAction(SetupAction.ToggleLandscape(it)) },
+            onSelect = { onAction(SetupAction.SelectScaling(it)) },
         )
         SettingDropdown(
-            label = stringResource(R.string.margins_label),
-            options = MarginOption.entries,
-            selected = settings.margins,
+            label = stringResource(R.string.setup_margins),
+            options = MarginPreset.entries,
+            selected = settings.marginPreset,
             optionLabel = { it.label },
-            onSelect = { onAction(SetupAction.SelectMargins(it)) },
+            onSelect = { onAction(SetupAction.SelectMarginPreset(it)) },
         )
         SettingDropdown(
-            label = stringResource(R.string.position_label),
-            options = ContentPosition.entries,
-            selected = settings.position,
-            optionLabel = { it.label },
-            onSelect = { onAction(SetupAction.SelectPosition(it)) },
+            label = stringResource(R.string.layout_pages_per_sheet),
+            options = PagesPerSheetOptions,
+            selected = settings.pagesPerSheet,
+            optionLabel = { it.toString() },
+            onSelect = { onAction(SetupAction.SelectPagesPerSheet(it)) },
         )
-        if (!settings.layoutGrid.isSingleSlot) {
-            SettingDropdown(
-                label = stringResource(R.string.layout_pages_per_sheet),
-                options = PagesPerSheetOptions,
-                selected = settings.pagesPerSheet,
-                optionLabel = { it.toString() },
-                onSelect = { onAction(SetupAction.SelectPagesPerSheet(it)) },
-            )
+        if (settings.pagesPerSheet > 1) {
             SettingDropdown(
                 label = stringResource(R.string.layout_page_order),
                 options = PageOrder.entries,
@@ -883,60 +880,23 @@ private fun PageSelectionCard(
                     color = MaterialTheme.colorScheme.error,
                 )
             }
-            UniformButtonRow(
-                buttons = listOf(
-                    UniformButton(
-                        label = stringResource(R.string.action_confirm),
-                        icon = Icons.Filled.Check,
-                        emphasized = true,
-                        onClick = { onAction(SetupAction.ApplyPageRange) },
+            if (state.isPageRangeDirty) {
+                UniformButtonRow(
+                    buttons = listOf(
+                        UniformButton(
+                            label = stringResource(R.string.action_confirm),
+                            icon = Icons.Filled.Check,
+                            emphasized = true,
+                            onClick = { onAction(SetupAction.ApplyPageRange) },
+                        ),
                     ),
-                ),
-            )
+                )
+            }
         }
         UniformToggleRow(
             label = stringResource(R.string.pages_reverse),
             checked = settings.reversePageOrder,
             onCheckedChange = { onAction(SetupAction.ToggleReversePageOrder(it)) },
-        )
-    }
-}
-
-@Composable
-private fun ValueStepper(
-    label: String,
-    value: String,
-    onDecrement: () -> Unit,
-    onIncrement: () -> Unit,
-    onDecrementDescription: String,
-    onIncrementDescription: String,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(DosPrintDimens.fieldGap),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f),
-        )
-        StepperButton(
-            label = "-",
-            description = onDecrementDescription,
-            enabled = true,
-            onClick = onDecrement,
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        StepperButton(
-            label = "+",
-            description = onIncrementDescription,
-            enabled = true,
-            onClick = onIncrement,
         )
     }
 }
@@ -968,13 +928,6 @@ private fun QualityCard(
             selected = state.settings.resolution,
             optionLabel = { it.label },
             onSelect = { onAction(SetupAction.SelectResolution(it)) },
-        )
-        SettingDropdown(
-            label = stringResource(R.string.setup_scaling),
-            options = ScalingMode.entries,
-            selected = state.settings.scaling,
-            optionLabel = { it.label },
-            onSelect = { onAction(SetupAction.SelectScaling(it)) },
         )
     }
 }
@@ -1048,14 +1001,34 @@ private fun ActionsCard(
         state.submitError?.let { key ->
             SurfaceErrorStrip(setupMessage(key) ?: key)
         }
-        Button(
-            onClick = { onAction(SetupAction.Print) },
-            enabled = state.canPrint,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = DosPrintDimens.controlHeight),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(DosPrintDimens.rowGap),
         ) {
-            Text(stringResource(R.string.setup_print))
+            Button(
+                onClick = { onAction(SetupAction.SavePdf) },
+                enabled = state.canPrint,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.onSurface,
+                    contentColor = MaterialTheme.colorScheme.surface,
+                ),
+                modifier = Modifier.weight(1f).heightIn(min = DosPrintDimens.controlHeight),
+            ) {
+                Icon(DosPrintIcons.Pdf, contentDescription = null)
+                Text(stringResource(R.string.preview_save_pdf), modifier = Modifier.padding(start = 8.dp))
+            }
+            Button(
+                onClick = { onAction(SetupAction.Print) },
+                enabled = state.canPrint,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.onSurface,
+                    contentColor = MaterialTheme.colorScheme.surface,
+                ),
+                modifier = Modifier.weight(1f).heightIn(min = DosPrintDimens.controlHeight),
+            ) {
+                Icon(DosPrintIcons.Printer, contentDescription = null)
+                Text(stringResource(R.string.output_android_print), modifier = Modifier.padding(start = 8.dp))
+            }
         }
     }
 }
@@ -1083,16 +1056,13 @@ private fun summaryLine(state: SetupUiState): String {
     } else {
         stringResource(R.string.setup_document_count, state.documents.size)
     }
-    val printer = state.printer?.displayName ?: NO_PRINTER_SELECTED
-    return "$document · $printer"
+    return document
 }
 
 private val PagesPerSheetOptions = listOf(1, 2, 4, 6, 9, 16)
 private val ImageCountOptions = (1..com.dosprint.domain.model.ImagePageSettings.MAX_IMAGES_PER_PAGE).toList()
-private const val ScaleStep = 5
 private const val CellBorderOn = 0.01f
 
 private const val COPIES_LABEL = "Copies"
 private const val ORIENTATION_PORTRAIT = "Portrait"
 private const val ORIENTATION_LANDSCAPE = "Landscape"
-private const val NO_PRINTER_SELECTED = "No printer selected"

@@ -38,7 +38,6 @@ class HomeViewModel(
             HomeAction.Refresh -> refresh()
             HomeAction.PickDocuments,
             HomeAction.PickImages,
-            HomeAction.OpenPrinters,
             HomeAction.OpenDocuments,
             -> Unit
             is HomeAction.ToggleFavorite -> toggleFavorite(action.uri, action.favorite)

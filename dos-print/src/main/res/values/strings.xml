@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">Dos Print</string>
 
-    <string name="nav_home">Home</string>
+    <string name="nav_print">Print</string>
     <string name="nav_printers">Printers</string>
     <string name="nav_history">Jobs</string>
     <string name="nav_settings">Settings</string>
@@ -70,11 +70,13 @@
     <string name="setup_unsupported_layout">This printer does not support %1$s layouts. Using %2$s.</string>
     <string name="setup_invalid_range_empty">Enter at least one page or range.</string>
 
+    <string name="importing_files">Importing files…</string>
     <string name="preview_title">Preview</string>
     <string name="preview_page_of">Page %1$d of %2$d</string>
     <string name="preview_previous_sheet">Previous</string>
     <string name="preview_next_sheet">Next</string>
     <string name="preview_generating">Rendering preview…</string>
+    <string name="preview_ready_to_print">Ready to print</string>
     <string name="preview_failed">Preview could not be rendered.</string>
 
     <string name="history_active">In progress</string>
@@ -103,7 +105,6 @@
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_dynamic_color">Dynamic color</string>
     <string name="settings_dynamic_color_summary">Use wallpaper colors on Android 12 and newer</string>
-    <string name="settings_contrast">Increase contrast</string>
     <string name="settings_defaults">Printing defaults</string>
     <string name="settings_default_quality">Default quality</string>
     <string name="settings_default_color">Default color mode</string>
@@ -197,6 +198,7 @@
     <string name="setup_document_count">%1$d documents</string>
     <string name="message_printer_selected">Printer selected</string>
     <string name="message_job_submitted">Job sent to the printer</string>
+    <string name="message_android_print_opened">Android print options opened</string>
     <string name="message_no_printer">Choose a printer first</string>
     <string name="message_no_document">Choose at least one document first</string>
     <string name="message_submit_failed">The job could not be sent to the printer</string>
@@ -222,6 +224,9 @@
     <string name="printers_add_saving">Adding</string>
     <string name="printers_refresh_failed">Printers could not be refreshed</string>
     <string name="save_pdf">Save as PDF</string>
+    <string name="preview_save_pdf">Save PDF</string>
+    <string name="output_android_print">Android print</string>
+    <string name="preview_choose_output">Choose an output</string>
     <string name="home_greeting_title">Dos Print</string>
     <string name="home_favorite_documents">Favourites</string>
     <string name="home_active_prints">Running now</string>
@@ -267,16 +272,21 @@
     <string name="image_section_title">Photo layout</string>
     <string name="image_section_subtitle">Photos are placed automatically, so these decide how they fill the sheet</string>
     <string name="image_per_page">Images per page</string>
+    <string name="image_per_page_summary">Layout only — copies per image are set in Basic.</string>
     <string name="image_count_option">%1$d | %2$d × %3$d (%4$s × %5$s in)</string>
     <string name="image_count_option_fixed">%1$d | %2$d × %3$d (%4$s × %5$s in)</string>
     <string name="image_photo_size">Photo print size</string>
-    <string name="image_photo_size_unavailable">This size does not fit the selected paper. Choose a smaller size, larger paper, or Automatic.</string>
+    <string name="image_manual_size">Use manual photo size</string>
+    <string name="image_manual_size_summary">Enter the printed width and height. Copies per image are not limited by this.</string>
+    <string name="image_photo_size_unavailable">This size exceeds the printable area. One photo will be clipped at the paper edges; choose a larger paper to print it at full size.</string>
     <string name="image_photo_size_unavailable_option">%1$s · does not fit</string>
     <string name="image_custom_width">Width (in)</string>
     <string name="image_custom_height">Height (in)</string>
     <string name="image_custom_size_hint">Set the printed photo dimensions. The preview updates when both values are valid.</string>
-    <string name="image_custom_size_invalid">Enter a width and height from 0.01 to 100 inches.</string>
+    <string name="image_custom_size_invalid">Maximum printable photo size: %1$s × %2$s in. Change paper or margins to use a larger size.</string>
+    <string name="image_custom_size_exact">The image is stretched to fill these exact printed dimensions.</string>
     <string name="image_grid_direction">Grid direction</string>
+    <string name="image_grid_direction_summary">Choose a layout for when multiple photos fit on the sheet.</string>
     <string name="image_arrangement_auto">Automatic</string>
     <string name="image_arrangement_side_by_side">Side by side</string>
     <string name="image_arrangement_stacked">Stacked</string>

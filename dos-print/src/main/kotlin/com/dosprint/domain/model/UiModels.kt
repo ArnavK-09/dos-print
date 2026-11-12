@@ -13,7 +13,6 @@ enum class ThemeOption(val label: String) {
 data class UserPreferences(
     val theme: ThemeOption = ThemeOption.SYSTEM,
     val useDynamicColor: Boolean = true,
-    val increaseContrast: Boolean = false,
     val liquidGlassEnabled: Boolean = true,
     val defaultQuality: PrintResolution = PrintResolution.STANDARD,
     val defaultColorMode: ColorMode = ColorMode.COLOR,

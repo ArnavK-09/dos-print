@@ -10,7 +10,6 @@ import com.dosprint.di.AppContainer
 import com.dosprint.domain.model.ImagePageSettings
 import com.dosprint.domain.model.PageRange
 import com.dosprint.domain.model.PaperChoices
-import com.dosprint.domain.model.PdfDestinationCapabilities
 import com.dosprint.domain.model.PrintDocument
 import com.dosprint.domain.model.PrintSettings
 import com.dosprint.domain.model.PrintSettingsResolver
@@ -24,7 +23,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.UUID
 
 class SetupViewModel(
     private val container: AppContainer,
@@ -105,8 +103,8 @@ class SetupViewModel(
             if (snapshot.documents.isEmpty()) {
                 mutableState.update {
                     it.copy(
-                        previewError = NO_DOCUMENTS,
-                        livePreview = LivePreviewState(sheetCount = it.livePreview.sheetCount),
+                        previewError = null,
+                        livePreview = LivePreviewState(),
                     )
                 }
                 return@launch
@@ -165,7 +163,12 @@ class SetupViewModel(
 
     private fun schedulePreview() {
         previewJob?.cancel()
-        mutableState.update { it.copy(livePreview = it.livePreview.copy(isRendering = true)) }
+        mutableState.update {
+            it.copy(
+                previewError = null,
+                livePreview = it.livePreview.copy(isRendering = true, errorMessage = null),
+            )
+        }
         previewJob = viewModelScope.launch {
             delay(PreviewDebounceMillis)
             renderPreview()
@@ -226,22 +229,26 @@ class SetupViewModel(
             is SetupAction.SelectResolution -> mutateSettings { it.copy(resolution = action.resolution) }
             is SetupAction.SelectScaling -> mutateSettings { it.copy(scaling = action.scaling, scalePercent = 100) }
             is SetupAction.SelectMarginPreset -> mutateSettings { it.copy(marginPreset = action.preset) }
-            is SetupAction.SelectPageSelection ->
+            is SetupAction.SelectPageSelection -> {
                 mutateSettings { it.copy(pageSelection = action.mode) }
+                val applied = mutableState.value.settings.pageRange
+                mutableState.update {
+                    it.copy(
+                        pageRangeInput = if (action.mode.isRange && !applied.isAllPages) {
+                            applied.toDisplayString()
+                        } else {
+                            ""
+                        },
+                        isPageRangeDirty = false,
+                        pageRangeError = null,
+                    )
+                }
+            }
 
             is SetupAction.SetPageSegments ->
                 mutateSettings { it.copy(pageSegments = action.segments) }
 
             is SetupAction.ToggleReversePageOrder -> mutateSettings { it.copy(reversePageOrder = action.reverse) }
-
-            is SetupAction.SelectPosition -> mutateSettings { it.copy(position = action.position) }
-
-            is SetupAction.SelectPageScaling -> mutateSettings { it.copy(pageScaling = action.scaling) }
-
-            is SetupAction.SetScalePercent ->
-                mutateSettings { it.copy(scalePercent = action.percent.coerceIn(MIN_SCALE_PERCENT, MAX_SCALE_PERCENT)) }
-
-            is SetupAction.SelectMargins -> mutateSettings { it.copy(margins = action.margins) }
 
             is SetupAction.SelectManualDuplex -> mutateSettings { it.copy(manualDuplex = action.duplex) }
 
@@ -269,7 +276,7 @@ class SetupViewModel(
             is SetupAction.ToggleBorderless -> mutateSettings { it.copy(borderless = action.borderless) }
             is SetupAction.Rotate -> mutateSettings { it.copy(rotation = action.rotation) }
             SetupAction.OpenPreview -> Unit
-            SetupAction.Print -> submit()
+            SetupAction.Print, SetupAction.SavePdf -> Unit
             SetupAction.ClearSnackbar -> mutableState.update { it.copy(snackbarMessage = null) }
             SetupAction.DismissSubmitError -> mutableState.update { it.copy(submitError = null) }
         }
@@ -282,7 +289,7 @@ class SetupViewModel(
     }
 
     private fun updatePageRangeInput(input: String) {
-        mutableState.update { it.copy(pageRangeInput = input) }
+        mutableState.update { it.copy(pageRangeInput = input, isPageRangeDirty = true) }
     }
 
     private fun selectPrinter(printer: PrinterProfile) {
@@ -307,7 +314,7 @@ class SetupViewModel(
             mutableState.update { it.copy(pageRangeError = error) }
             return
         }
-        mutableState.update { it.copy(pageRangeError = null) }
+        mutableState.update { it.copy(pageRangeError = null, isPageRangeDirty = false) }
         mutateSettings { it.copy(pageRange = range) }
     }
 
@@ -324,44 +331,6 @@ class SetupViewModel(
             preset.category == com.dosprint.domain.model.LayoutCategory.LABELS
         ) {
             mutableState.update { it.copy(snackbarMessage = LAYOUT_PRESET_APPLIED) }
-        }
-    }
-
-    fun submit() {
-        val current = mutableState.value
-        if (current.pageRangeError != null) {
-            mutableState.update { it.copy(submitError = it.pageRangeError) }
-            return
-        }
-        val printer = current.printer ?: PrinterProfile.PdfDestination
-        if (current.printer == null) {
-            session.setPrinter(printer, PdfDestinationCapabilities)
-        }
-        if (current.documents.isEmpty()) {
-            mutableState.update { it.copy(submitError = NO_DOCUMENT) }
-            return
-        }
-        mutableState.update { it.copy(isSubmitting = true, submitError = null) }
-        viewModelScope.launch {
-            val capabilities = when (val outcome = container.printerRepository.capabilitiesFor(printer.id)) {
-                is Outcome.Success -> outcome.value
-                is Outcome.Failure -> com.dosprint.domain.model.PrinterCapabilities.Unknown.copy(printerId = printer.id)
-            }
-            val documents: List<PrintDocument> = current.documents
-            val result = container.printRepository.submit(
-                documents = documents,
-                printer = printer,
-                capabilities = capabilities,
-                settings = current.settings,
-                jobId = UUID.randomUUID().toString(),
-            )
-            mutableState.update { state ->
-                when (result) {
-                    is Outcome.Success -> state.copy(isSubmitting = false, snackbarMessage = JOB_SUBMITTED)
-                    is Outcome.Failure -> state.copy(isSubmitting = false, submitError = SUBMIT_FAILED)
-                }
-            }
-            container.preferencesRepository.setLastSettings(current.settings)
         }
     }
 
@@ -413,8 +382,6 @@ class SetupViewModel(
 
     internal companion object {
         const val MIN_COPIES = PrintSettings.MIN_COPIES
-        const val MIN_SCALE_PERCENT = 10
-        const val MAX_SCALE_PERCENT = 400
         const val MAX_COPIES = PrintSettings.MAX_COPIES
         const val MaxPagesPerSheet = com.dosprint.domain.model.LayoutGrid.MAX_SAFE_SLOTS
         const val LAYOUT_PRESET_APPLIED = "layout_preset_applied"
@@ -422,12 +389,8 @@ class SetupViewModel(
         const val PreviewSheetLimit = 1
         const val PREVIEW_FAILED = "preview_failed"
         const val AREA_PREVIEW_RENDER = "previewRender"
-        const val NO_DOCUMENTS = "no_document"
         const val FallbackPreviewWidth = 900
         const val PRINTER_SELECTED = "printer_selected"
-        const val JOB_SUBMITTED = "job_submitted"
-        const val SUBMIT_FAILED = "submit_failed"
-        const val NO_DOCUMENT = "no_document"
     }
 }
 

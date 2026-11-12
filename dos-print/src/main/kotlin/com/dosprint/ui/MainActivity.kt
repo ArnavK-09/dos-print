@@ -20,6 +20,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -35,6 +39,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,16 +58,16 @@ import com.dosprint.core.ErrorRecord
 import com.dosprint.core.ErrorReporter
 import com.dosprint.core.Outcome
 import com.dosprint.data.render.SheetPreviewRenderer
+import com.dosprint.domain.model.AndroidPrintServiceCapabilities
 import com.dosprint.domain.model.DocumentKind
 import com.dosprint.domain.model.PrintDocument
 import com.dosprint.domain.model.PrintSettings
-import com.dosprint.domain.model.isPdfDestination
+import com.dosprint.domain.model.PrinterProfile
 import com.dosprint.ui.components.PreviousCrashDialog
 import com.dosprint.ui.screens.DocumentsScreen
 import com.dosprint.ui.screens.HomeScreen
 import com.dosprint.ui.screens.LogsScreen
 import com.dosprint.ui.screens.PreviewScreen
-import com.dosprint.ui.screens.PrintersScreen
 import com.dosprint.ui.screens.SettingsScreen
 import com.dosprint.ui.screens.SetupScreen
 import com.dosprint.ui.theme.DosPrintTheme
@@ -134,9 +141,6 @@ fun DosPrintApp(
         factory = DocumentsViewModel.Factory(container, session),
     )
     val homeViewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory(container))
-    val printersViewModel: PrintersViewModel = viewModel(
-        factory = PrintersViewModel.Factory(container, session),
-    )
     val setupViewModel: SetupViewModel = viewModel(factory = SetupViewModel.Factory(container, session))
     val previewRenderer = remember(context) { SheetPreviewRenderer(context) }
     val previewViewModel: PreviewViewModel = viewModel(
@@ -152,7 +156,6 @@ fun DosPrintApp(
 
     val docsState by documentsViewModel.state.collectAsStateWithLifecycle()
     val homeState by homeViewModel.state.collectAsStateWithLifecycle()
-    val printersState by printersViewModel.state.collectAsStateWithLifecycle()
     val setupState by setupViewModel.state.collectAsStateWithLifecycle()
     val previewState by previewViewModel.state.collectAsStateWithLifecycle()
     val settingsState by settingsViewModel.state.collectAsStateWithLifecycle()
@@ -202,6 +205,23 @@ fun DosPrintApp(
         pendingPdfExport = PendingPdfExport(documents, settings)
         pdfExportPicker.launch(suggestedPdfFileName(documents))
     }
+    val requestAndroidPrint: (List<PrintDocument>, PrintSettings) -> Unit = { documents, settings ->
+        activityScope.launch {
+            when (
+                val result = container.printRepository.submit(
+                    activity = activity,
+                    documents = documents,
+                    printer = PrinterProfile.AndroidPrintService,
+                    capabilities = AndroidPrintServiceCapabilities,
+                    settings = settings,
+                    jobId = java.util.UUID.randomUUID().toString(),
+                )
+            ) {
+                is Outcome.Success -> snackbarHostState.showSnackbar(context.getString(R.string.message_android_print_opened))
+                is Outcome.Failure -> snackbarHostState.showSnackbar(result.error.message(context))
+            }
+        }
+    }
 
     val notificationPermission = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -216,7 +236,6 @@ fun DosPrintApp(
     DosPrintTheme(
         themeOption = themePreferences.theme,
         useDynamicColor = themePreferences.useDynamicColor,
-        increaseContrast = themePreferences.increaseContrast,
     ) {
         val windowSizeClass = calculateWindowSizeClass(activity)
 
@@ -304,7 +323,6 @@ fun DosPrintApp(
                         states = ScreenStates(
                             home = homeState,
                             documents = docsState,
-                            printers = printersState,
                             setup = setupState,
                             preview = previewState,
                             settings = settingsState,
@@ -324,7 +342,6 @@ fun DosPrintApp(
                                     navController.navigate(Route.Setup)
                                 },
                                 onDocuments = documentsViewModel::acceptAction,
-                                onPrinters = printersViewModel::acceptAction,
                                 onSetup = setupViewModel::dispatch,
                                 onImagePageChange = setupViewModel::setImagePage,
                                 onPreview = previewViewModel::dispatch,
@@ -335,6 +352,7 @@ fun DosPrintApp(
                                 onPickImages = { mediaPicker.launch(ImageMimeTypes) },
                                 onPickMedia = { mediaPicker.launch(ImageMimeTypes) },
                                 onSavePdf = requestPdfSave,
+                                onPrintAndroid = requestAndroidPrint,
                                 onRequestNotificationPermission = {
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                         notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -344,6 +362,16 @@ fun DosPrintApp(
                                 onPreviewSurfaceWidth = previewViewModel::onSurfaceWidth,
                             ),
                         ),
+                    )
+                }
+                if (docsState.isImporting) {
+                    val importingLabel = stringResource(R.string.importing_files)
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .windowInsetsPadding(WindowInsets.statusBars)
+                            .semantics { contentDescription = importingLabel },
                     )
                 }
                 DosPrintBottomBar(
@@ -395,7 +423,6 @@ private fun DosPrintNavHost(
 ) {
     val homeState = states.home
     val docsState = states.documents
-    val printersState = states.printers
     val setupState = states.setup
     val previewState = states.preview
     val settingsState = states.settings
@@ -404,7 +431,6 @@ private fun DosPrintNavHost(
     val onHomeAction = actions.onHome
     val onHomeDocumentClicked = actions.onHomeDocumentClicked
     val onDocumentsAction = actions.onDocuments
-    val onPrintersAction = actions.onPrinters
     val onSetupAction = actions.onSetup
     val onImagePageChange = actions.onImagePageChange
     val onPreviewAction = actions.onPreview
@@ -416,6 +442,7 @@ private fun DosPrintNavHost(
     val onRequestNotificationPermission = launchers.onRequestNotificationPermission
     val onSetupPreviewSurface = launchers.onSetupSurfaceWidth
     val onSavePdf = launchers.onSavePdf
+    val onPrintAndroid = launchers.onPrintAndroid
     NavHost(
         navController = navController,
         startDestination = Route.Home,
@@ -426,8 +453,7 @@ private fun DosPrintNavHost(
                 state = homeState,
                 onAction = { action ->
                     when (action) {
-                        HomeAction.OpenPrinters -> navController.navigateTop(TopLevelDestination.PRINTERS)
-                        HomeAction.OpenDocuments -> navController.navigateTop(TopLevelDestination.DOCUMENTS)
+                        HomeAction.OpenDocuments -> navController.navigate(Route.Documents)
                         HomeAction.PickDocuments -> onPickFiles()
                         HomeAction.PickImages -> onPickImages()
                         is HomeAction.DocumentClicked -> onHomeDocumentClicked(action.document)
@@ -451,25 +477,15 @@ private fun DosPrintNavHost(
                 contentPadding = contentPadding,
             )
         }
-        composable(Route.Printers) {
-            PrintersScreen(
-                state = printersState,
-                onAction = onPrintersAction,
-                contentPadding = contentPadding,
-            )
-        }
         composable(Route.Setup) {
             SetupScreen(
                 state = setupState,
                 onAction = { action ->
                     when (action) {
                         SetupAction.OpenPreview -> navController.navigate(Route.Preview)
+                        SetupAction.SavePdf -> onSavePdf(setupState.documents, setupState.settings)
+                        SetupAction.Print -> onPrintAndroid(setupState.documents, setupState.settings)
                         SetupAction.OpenLogs -> navController.navigate(Route.Logs)
-                        SetupAction.Print -> if (setupState.printer?.isPdfDestination() != false) {
-                            onSavePdf(setupState.documents, setupState.settings)
-                        } else {
-                            onSetupAction(action)
-                        }
                         else -> onSetupAction(action)
                     }
                 },
@@ -485,11 +501,8 @@ private fun DosPrintNavHost(
                     when (action) {
                         PreviewAction.BackToSetup, PreviewAction.OpenSetup ->
                             navController.popBackStack(Route.Setup, inclusive = false)
-                        PreviewAction.Print -> if (previewState.printer?.isPdfDestination() != false) {
-                            onSavePdf(previewState.documents, previewState.settings)
-                        } else {
-                            onPreviewAction(action)
-                        }
+                        PreviewAction.SavePdf -> onSavePdf(previewState.documents, previewState.settings)
+                        PreviewAction.Print -> onPrintAndroid(previewState.documents, previewState.settings)
                         else -> onPreviewAction(action)
                     }
                 },

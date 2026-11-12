@@ -1,5 +1,12 @@
 package com.dosprint.ui.components
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -9,21 +16,24 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -35,10 +45,12 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dosprint.R
 import com.dosprint.ui.LivePreviewState
 import com.dosprint.ui.theme.DosPrintDimens
+import com.dosprint.ui.theme.isDarkTheme
 import kotlin.math.max
 
 /**
@@ -55,7 +67,11 @@ fun LivePreviewPanel(
 ) {
     val previewLabel = stringResource(R.string.setup_live_preview)
     val inspectLabel = stringResource(R.string.setup_live_preview_inspect)
-    val paperBackdrop = MaterialTheme.colorScheme.onSurface.copy(alpha = PreviewBackdropAlpha)
+    val paperBackdrop = if (MaterialTheme.colorScheme.isDarkTheme()) {
+        Color.Black.copy(alpha = PreviewBackdropDarkAlpha)
+    } else {
+        Color.Black.copy(alpha = PreviewBackdropLightAlpha)
+    }
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(DosPrintDimens.sectionCorner),
@@ -127,19 +143,45 @@ fun LivePreviewPanel(
                                 shape = RoundedCornerShape(2.dp),
                             ),
                     )
-                    state.isRendering -> Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(DosPrintDimens.rowGap),
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(DosPrintDimens.space24),
-                            strokeWidth = 2.dp,
+                    state.isRendering -> {
+                        val transition = rememberInfiniteTransition(label = "livePreviewSkeleton")
+                        val alpha by transition.animateFloat(
+                            initialValue = SkeletonAlphaMin,
+                            targetValue = SkeletonAlphaMax,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(durationMillis = SkeletonPulseMillis, easing = LinearEasing),
+                                repeatMode = RepeatMode.Reverse,
+                            ),
+                            label = "livePreviewSkeletonAlpha",
                         )
-                        Text(
-                            text = stringResource(R.string.preview_generating),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(DosPrintDimens.rowGap),
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(SkeletonPageWidth, SkeletonPageHeight),
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = RoundedCornerShape(2.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(DosPrintDimens.space8),
+                                    verticalArrangement = Arrangement.spacedBy(DosPrintDimens.space6),
+                                ) {
+                                    LivePreviewBar(widthFraction = 0.62f, height = 10.dp, alpha = alpha)
+                                    LivePreviewBar(widthFraction = 1f, height = 6.dp, alpha = alpha * SkeletonLineAlphaScale)
+                                    LivePreviewBar(widthFraction = 0.84f, height = 6.dp, alpha = alpha * SkeletonLineAlphaScale)
+                                    LivePreviewBar(widthFraction = 1f, height = 6.dp, alpha = alpha * SkeletonLineAlphaScale)
+                                    LivePreviewBar(widthFraction = 0.72f, height = 6.dp, alpha = alpha * SkeletonLineAlphaScale)
+                                    LivePreviewBar(widthFraction = 1f, height = 6.dp, alpha = alpha * SkeletonLineAlphaScale)
+                                }
+                            }
+                            Text(
+                                text = stringResource(R.string.preview_generating),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     else -> Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -161,9 +203,9 @@ fun LivePreviewPanel(
                     }
                 }
             }
-            state.errorMessage?.let { error ->
+            state.errorMessage?.let {
                 Text(
-                    text = error,
+                    text = stringResource(R.string.preview_failed),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -172,6 +214,24 @@ fun LivePreviewPanel(
     }
 }
 
-private const val PreviewBackdropAlpha = 0.18f
+private const val PreviewBackdropDarkAlpha = 0.62f
+private const val PreviewBackdropLightAlpha = 0.05f
 private val PreviewMinHeight = 190.dp
 private val PreviewMaxHeight = 320.dp
+private val SkeletonPageWidth = 96.dp
+private val SkeletonPageHeight = 136.dp
+private const val SkeletonAlphaMin = 0.12f
+private const val SkeletonAlphaMax = 0.3f
+private const val SkeletonLineAlphaScale = 0.75f
+private const val SkeletonPulseMillis = 900
+
+@Composable
+private fun LivePreviewBar(widthFraction: Float, height: Dp, alpha: Float) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(widthFraction)
+            .height(height)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)),
+    )
+}

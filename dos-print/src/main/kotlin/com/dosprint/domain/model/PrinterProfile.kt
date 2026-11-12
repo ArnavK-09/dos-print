@@ -57,6 +57,14 @@ data class PrinterProfile(
             isUserAdded = false,
             availability = PrinterAvailability.ONLINE,
         )
+
+        val AndroidPrintService: PrinterProfile = PrinterProfile(
+            id = PrinterDestinations.AndroidPrintServiceId,
+            displayName = "Android print service",
+            description = "Choose a printer in Android's print dialog",
+            connectionType = PrinterConnectionType.SYSTEM,
+            availability = PrinterAvailability.ONLINE,
+        )
     }
 
     fun matches(other: PrinterProfile): Boolean =

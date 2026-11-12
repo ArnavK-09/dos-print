@@ -33,23 +33,23 @@ cd /path/to/DosPrint
 `assembleRelease` copies the minified APK to:
 
 ```
-build-outputs/dos-print-v0.0.1.apk
+build-outputs/dos-print-v0.0.2.apk
 ```
 
 ## Verifying the artifact
 
 ```bash
-.toolchain/android-sdk/build-tools/35.0.0/aapt2 dump badging build-outputs/dos-print-v0.0.1.apk
-.toolchain/android-sdk/build-tools/35.0.0/apksigner verify -v build-outputs/dos-print-v0.0.1.apk
+.toolchain/android-sdk/build-tools/35.0.0/aapt2 dump badging build-outputs/dos-print-v0.0.2.apk
+.toolchain/android-sdk/build-tools/35.0.0/apksigner verify -v build-outputs/dos-print-v0.0.2.apk
 ```
 
-Expected: `versionName='0.0.1' versionCode='1'`, `minSdkVersion:'26'`, and
+Expected: `versionName='0.0.2' versionCode='2'`, `minSdkVersion:'26'`, and
 `targetSdkVersion:'35'`. Signature verification succeeds only when local signing files are set up.
 
 ## Installing
 
 ```bash
-adb install -r build-outputs/dos-print-v0.0.1.apk
+adb install -r build-outputs/dos-print-v0.0.2.apk
 ```
 
 Runtime permissions are requested in-app:

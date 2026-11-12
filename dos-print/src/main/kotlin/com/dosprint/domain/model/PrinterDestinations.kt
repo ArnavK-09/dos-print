@@ -7,6 +7,7 @@ object PrinterDestinations {
     const val PdfName = "Save as PDF"
     const val PdfDescription = "Write the finished sheets to a PDF file"
     const val PdfUriScheme = "dosprint+pdf"
+    const val AndroidPrintServiceId = "destination_android_print_service"
 }
 
 @Immutable
@@ -182,4 +183,8 @@ val PdfDestinationCapabilities: PrinterCapabilities = PrinterCapabilities(
     supportsBorderless = true,
     maxSheetLayoutCount = LayoutGrid.MAX_SAFE_SLOTS,
     unknown = false,
+)
+
+val AndroidPrintServiceCapabilities: PrinterCapabilities = PdfDestinationCapabilities.copy(
+    printerId = PrinterDestinations.AndroidPrintServiceId,
 )

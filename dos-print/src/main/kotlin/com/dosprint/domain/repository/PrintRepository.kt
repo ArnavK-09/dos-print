@@ -1,5 +1,6 @@
 package com.dosprint.domain.repository
 
+import android.app.Activity
 import com.dosprint.core.Outcome
 import com.dosprint.domain.model.PrintDocument
 import com.dosprint.domain.model.PrintJob
@@ -42,6 +43,7 @@ interface PrintRepository {
     fun onSystemJobUpdate(systemJob: android.print.PrintJob)
 
     suspend fun submit(
+        activity: Activity,
         documents: List<PrintDocument>,
         printer: PrinterProfile,
         capabilities: PrinterCapabilities,

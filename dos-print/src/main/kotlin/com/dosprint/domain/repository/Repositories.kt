@@ -14,8 +14,6 @@ interface PreferencesRepository {
 
     suspend fun setDynamicColor(enabled: Boolean)
 
-    suspend fun setIncreaseContrast(enabled: Boolean)
-
     suspend fun setLiquidGlassEnabled(enabled: Boolean)
 
     suspend fun setDefaultQuality(resolution: com.dosprint.domain.model.PrintResolution)

@@ -102,11 +102,6 @@ private fun AppearanceCard(state: SettingsUiState, onAction: (SettingsAction) ->
                 onCheckedChange = { onAction(SettingsAction.ToggleDynamicColor(it)) },
             )
             LabeledSwitch(
-                label = stringResource(R.string.settings_contrast),
-                checked = state.preferences.increaseContrast,
-                onCheckedChange = { onAction(SettingsAction.ToggleContrast(it)) },
-            )
-            LabeledSwitch(
                 label = stringResource(R.string.settings_liquid_glass),
                 summary = stringResource(R.string.settings_liquid_glass_summary),
                 checked = state.preferences.liquidGlassEnabled,
@@ -157,11 +152,6 @@ private fun AdvancedCard(state: SettingsUiState, onAction: (SettingsAction) -> U
                 summary = stringResource(R.string.settings_low_memory_summary),
                 checked = state.preferences.lowMemoryMode,
                 onCheckedChange = { onAction(SettingsAction.ToggleLowMemory(it)) },
-            )
-            LabeledSwitch(
-                label = stringResource(R.string.settings_auto_discover),
-                checked = state.preferences.autoDiscoverPrinters,
-                onCheckedChange = { onAction(SettingsAction.ToggleAutoDiscover(it)) },
             )
         }
     }

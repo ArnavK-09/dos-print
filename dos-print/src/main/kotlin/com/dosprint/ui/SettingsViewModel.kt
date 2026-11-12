@@ -31,21 +31,12 @@ class SettingsViewModel(
 
     init {
         observePreferences()
-        observePrinters()
     }
 
     private fun observePreferences() {
         viewModelScope.launch {
             preferences.preferences.collect { prefs ->
                 mutableState.update { it.copy(preferences = prefs) }
-            }
-        }
-    }
-
-    private fun observePrinters() {
-        viewModelScope.launch {
-            container.printerRepository.printers.collect { printers ->
-                mutableState.update { it.copy(printerCount = printers.size) }
             }
         }
     }
@@ -59,7 +50,6 @@ class SettingsViewModel(
             when (action) {
                 is SettingsAction.SelectTheme -> preferences.setTheme(action.theme)
                 is SettingsAction.ToggleDynamicColor -> preferences.setDynamicColor(action.enabled)
-                is SettingsAction.ToggleContrast -> preferences.setIncreaseContrast(action.enabled)
                 is SettingsAction.ToggleLiquidGlass -> preferences.setLiquidGlassEnabled(action.enabled)
                 is SettingsAction.SelectDefaultQuality -> preferences.setDefaultQuality(action.resolution)
                 is SettingsAction.SelectDefaultColorMode -> preferences.setDefaultColorMode(action.mode)

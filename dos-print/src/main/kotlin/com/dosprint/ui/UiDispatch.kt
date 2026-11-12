@@ -31,8 +31,6 @@ sealed interface HomeAction {
 
     data class DocumentClicked(val document: PrintDocument) : HomeAction
 
-    data object OpenPrinters : HomeAction
-
     data object OpenDocuments : HomeAction
 
     data object ClearSnackbar : HomeAction
@@ -123,14 +121,6 @@ sealed interface SetupAction {
 
     data class ToggleReversePageOrder(val reverse: Boolean) : SetupAction
 
-    data class SelectPosition(val position: com.dosprint.domain.model.ContentPosition) : SetupAction
-
-    data class SelectPageScaling(val scaling: com.dosprint.domain.model.PageScaling) : SetupAction
-
-    data class SetScalePercent(val percent: Int) : SetupAction
-
-    data class SelectMargins(val margins: com.dosprint.domain.model.MarginOption) : SetupAction
-
     data class SelectManualDuplex(val duplex: com.dosprint.domain.model.ManualDuplex) : SetupAction
 
     data class SelectDuplex(val duplex: DuplexMode) : SetupAction
@@ -181,6 +171,8 @@ sealed interface SetupAction {
 
     data object Print : SetupAction
 
+    data object SavePdf : SetupAction
+
     data object ClearSnackbar : SetupAction
 
     data object DismissSubmitError : SetupAction
@@ -197,6 +189,8 @@ sealed interface PreviewAction {
 
     data object Print : PreviewAction
 
+    data object SavePdf : PreviewAction
+
     data object BackToSetup : PreviewAction
 
     data object OpenSetup : PreviewAction
@@ -208,8 +202,6 @@ sealed interface SettingsAction {
     data class SelectTheme(val theme: ThemeOption) : SettingsAction
 
     data class ToggleDynamicColor(val enabled: Boolean) : SettingsAction
-
-    data class ToggleContrast(val enabled: Boolean) : SettingsAction
 
     data class ToggleLiquidGlass(val enabled: Boolean) : SettingsAction
 

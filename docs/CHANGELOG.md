@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.2 — photo sizing and layout
+
+- Manual photo dimensions are bounded by the selected paper's printable area and fill the exact
+  entered width and height.
+- Grid direction and gaps remain available while the current photo count is one, so users can
+  adjust a layout before selecting a supported images-per-sheet count.
+- Photo preview and output use the same sheet composer.
+- Updated the setup flow and print controls, and formatted the Kotlin codebase.
+
 ## 0.0.1 — initial prototype (2026-10-05)
 
 ### Page size actually takes effect now
@@ -154,9 +163,6 @@
   environment.
 - No cloud print or raw IPP submission: jobs go through the Android print framework, which handles
   those transports internally.
-- The photo layout options are modelled and their defaults match the reference app, but the composer
-  has not yet been wired to lay images out from `ImagePageSettings`. The document path is unaffected;
-  images currently flow through the document grid.
 - The reference app's web-page printing and manual duplex ("front sides" / "back sides in reverse
   order") are not implemented.
 - mDNS discovery, Bluetooth printing and the resulting paper negotiation remain unverified on

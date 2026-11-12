@@ -1,5 +1,6 @@
 package com.dosprint.data.print
 
+import android.app.Activity
 import android.content.Context
 import android.print.PrintAttributes
 import android.print.PrintManager
@@ -52,6 +53,9 @@ class PrintJobCoordinator(
 
     fun buildAttributes(settings: PrintSettings, capabilities: PrinterCapabilities): PrintAttributes {
         val paper = PrintAttributeSanity.resolvedPaper(settings, capabilities).withOrientation(settings.landscape)
+        val marginFraction = settings.layoutGrid.marginFraction.coerceIn(0f, 0.2f)
+        val horizontalMarginMils = (paper.widthMils * marginFraction).toInt()
+        val verticalMarginMils = (paper.heightMils * marginFraction).toInt()
         return PrintAttributes.Builder()
             .setMediaSize(
                 PrintAttributes.MediaSize(
@@ -64,7 +68,14 @@ class PrintJobCoordinator(
             .setResolution(settings.resolution.toPrintResolution())
             .setColorMode(PrintAttributeSanity.resolvedColorMode(settings, capabilities).toPrintColorMode())
             .setDuplexMode(capabilities.closestDuplex(settings.duplex).toPrintDuplexMode())
-            .setMinMargins(settings.marginPreset.toMargins(PrintAttributes.Margins.NO_MARGINS))
+            .setMinMargins(
+                PrintAttributes.Margins(
+                    horizontalMarginMils,
+                    verticalMarginMils,
+                    horizontalMarginMils,
+                    verticalMarginMils,
+                ),
+            )
             .build()
     }
 
@@ -75,15 +86,16 @@ class PrintJobCoordinator(
         else -> "Dos Print (${documents.size} files)"
     }
 
-    fun printManager(): PrintManager? = runCatching { context.getSystemService(PrintManager::class.java) }
+    fun printManager(activity: Activity): PrintManager? = runCatching { activity.getSystemService(PrintManager::class.java) }
         .onFailure { error -> AppLog.warn(AppLog.throwableTag("printManager", error)) }
         .getOrNull()
 
     fun submitJob(
+        activity: Activity,
         jobName: String,
         adapter: DosPrintDocumentAdapter,
         attributes: PrintAttributes,
-    ): Outcome<android.print.PrintJob> = when (val manager = printManager()) {
+    ): Outcome<android.print.PrintJob> = when (val manager = printManager(activity)) {
         null -> Outcome.Failure(com.dosprint.core.AppError.NoPrintService)
         else -> runCatchingOutcome { manager.print(jobName, adapter, attributes) }
     }

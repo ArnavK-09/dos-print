@@ -1,5 +1,6 @@
 package com.dosprint.data.print
 
+import android.app.Activity
 import android.print.PrintJob
 import com.dosprint.core.AppError
 import com.dosprint.core.DispatcherProvider
@@ -48,6 +49,7 @@ class PrintRepositoryImpl(
     override val events: Flow<DomainPrintJob> = eventsFlow.asSharedFlow()
 
     override suspend fun submit(
+        activity: Activity,
         documents: List<PrintDocument>,
         printer: PrinterProfile,
         capabilities: PrinterCapabilities,
@@ -107,7 +109,7 @@ class PrintRepositoryImpl(
             lowMemory = lowMemoryProvider(),
         )
         val attributes = coordinator.buildAttributes(resolved, capabilities)
-        val submission = coordinator.submitJob(coordinator.buildJobName(inputs), adapter, attributes)
+        val submission = coordinator.submitJob(activity, coordinator.buildJobName(inputs), adapter, attributes)
         return@withLock when (submission) {
             is Outcome.Failure -> {
                 val failed = prepared.withStatus(PrintJobStatus.FAILED, submission.error)

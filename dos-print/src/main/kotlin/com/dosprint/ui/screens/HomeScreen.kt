@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -33,8 +31,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -42,8 +38,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.dosprint.R
 import com.dosprint.domain.model.PrintDocument
 import com.dosprint.ui.HomeAction
@@ -61,7 +59,7 @@ fun HomeScreen(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier
                 .widthIn(max = HomeContentMaxWidth)
@@ -69,6 +67,7 @@ fun HomeScreen(
                 .align(Alignment.TopCenter),
             contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(DosPrintDimens.cardGap),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             item(key = "landing") {
                 HomeLanding(
@@ -100,91 +99,87 @@ private fun HomeLanding(
     onAction: (HomeAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        if (maxWidth >= WideHomeBreakpoint) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = DosPrintDimens.space24),
-                horizontalArrangement = Arrangement.spacedBy(DosPrintDimens.space32),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(
-                    modifier = Modifier.weight(1.1f),
-                    verticalArrangement = Arrangement.spacedBy(DosPrintDimens.space24),
-                ) {
-                    HomeIntro()
-                    PrintSheetArtwork(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(WideArtworkHeight),
-                    )
-                }
-                FlowEntries(
-                    onAction = onAction,
-                    modifier = Modifier.weight(0.9f),
-                )
-            }
-        } else {
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = DosPrintDimens.space24),
+    ) {
+        val compactHeight = maxHeight < CompactHeightBreakpoint
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = DosPrintDimens.space4),
+                    .widthIn(max = HomeColumnMaxWidth)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(if (compactHeight) DosPrintDimens.space20 else DosPrintDimens.space32),
             ) {
-                HomeIntro()
-                Spacer(modifier = Modifier.weight(1f))
-                PrintSheetArtwork(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(CompactArtworkHeight),
+                HomeIntro(showBody = !compactHeight)
+                FlowEntries(
+                    onAction = onAction,
+                    compact = compactHeight,
                 )
-                Spacer(modifier = Modifier.weight(1f))
-                FlowEntries(onAction = onAction)
-                Spacer(modifier = Modifier.height(DosPrintDimens.space8))
             }
         }
     }
 }
 
 @Composable
-private fun HomeIntro() {
+private fun HomeIntro(showBody: Boolean) {
     Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(DosPrintDimens.space8),
         modifier = Modifier.semantics { heading() },
     ) {
         Text(
-            text = stringResource(R.string.home_choose_flow),
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurface,
+            text = stringResource(R.string.home_greeting_title).uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            letterSpacing = 4.sp,
+            textAlign = TextAlign.Center,
         )
         Text(
-            text = stringResource(R.string.home_welcome_body),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            text = stringResource(R.string.home_choose_flow),
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
         )
+        if (showBody) {
+            Text(
+                text = stringResource(R.string.home_welcome_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.widthIn(max = HomeBodyMaxWidth),
+            )
+        }
     }
 }
 
 @Composable
 private fun FlowEntries(
     onAction: (HomeAction) -> Unit,
-    modifier: Modifier = Modifier,
+    compact: Boolean,
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(DosPrintDimens.cardGap),
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(DosPrintDimens.space16),
     ) {
         FlowEntry(
             icon = DosPrintIcons.Image,
             title = stringResource(R.string.home_flow_photos),
-            subtitle = stringResource(R.string.home_flow_photos_subtitle),
             onClick = { onAction(HomeAction.PickImages) },
+            compact = compact,
+            modifier = Modifier.weight(1f),
         )
         FlowEntry(
             icon = DosPrintIcons.Document,
             title = stringResource(R.string.home_flow_documents),
-            subtitle = stringResource(R.string.home_flow_documents_subtitle),
             onClick = { onAction(HomeAction.PickDocuments) },
+            compact = compact,
+            modifier = Modifier.weight(1f),
         )
     }
 }
@@ -193,141 +188,53 @@ private fun FlowEntries(
 private fun FlowEntry(
     icon: ImageVector,
     title: String,
-    subtitle: String,
     onClick: () -> Unit,
+    compact: Boolean,
+    modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = ActionTileHeight)
-            .clip(MaterialTheme.shapes.medium)
+        modifier = modifier
+            .height(if (compact) CompactActionTileHeight else ActionTileHeight)
+            .clip(MaterialTheme.shapes.large)
             .clickable(role = Role.Button, onClick = onClick)
             .semantics {
                 contentDescription = title
                 role = Role.Button
             },
         color = MaterialTheme.colorScheme.surface,
-        shape = MaterialTheme.shapes.medium,
+        shape = MaterialTheme.shapes.large,
         border = BorderStroke(DosPrintDimens.hairline, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Row(
-            modifier = Modifier.padding(DosPrintDimens.listItemPadding),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(DosPrintDimens.fieldGap),
+        Column(
+            modifier = Modifier.padding(DosPrintDimens.space16),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
             Box(
                 modifier = Modifier
-                    .size(ActionIconSize)
+                    .size(if (compact) CompactIconSize else ActionIconSize)
                     .background(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        shape = CircleShape,
                     ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(DosPrintDimens.iconMedium),
+                    tint = MaterialTheme.colorScheme.background,
+                    modifier = Modifier.size(if (compact) DosPrintDimens.iconMedium else DosPrintDimens.iconLarge),
                 )
             }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun PrintSheetArtwork(modifier: Modifier = Modifier) {
-    val colors = MaterialTheme.colorScheme
-    Box(
-        modifier = modifier
-            .clip(MaterialTheme.shapes.large)
-            .background(colors.surfaceVariant),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .offset(x = 18.dp, y = (-38).dp)
-                .size(152.dp)
-                .clip(CircleShape)
-                .background(colors.primaryContainer),
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .offset(x = 34.dp, y = 38.dp)
-                .size(126.dp)
-                .clip(CircleShape)
-                .background(colors.tertiaryContainer),
-        )
-        ArtworkSheet(
-            accent = colors.secondaryContainer,
-            modifier = Modifier
-                .offset(x = (-62).dp, y = 8.dp)
-                .rotate(-11f)
-                .size(86.dp, 116.dp),
-        )
-        ArtworkSheet(
-            accent = colors.tertiaryContainer,
-            modifier = Modifier
-                .offset(x = 62.dp, y = 8.dp)
-                .rotate(11f)
-                .size(86.dp, 116.dp),
-        )
-        ArtworkSheet(
-            accent = colors.primaryContainer,
-            modifier = Modifier.size(96.dp, 132.dp),
-        )
-    }
-}
-
-@Composable
-private fun ArtworkSheet(
-    accent: Color,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(DosPrintDimens.hairline, MaterialTheme.colorScheme.outlineVariant),
-    ) {
-        Column(
-            modifier = Modifier.padding(DosPrintDimens.space8),
-            verticalArrangement = Arrangement.spacedBy(DosPrintDimens.space6),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .clip(MaterialTheme.shapes.small)
-                    .background(accent),
+            Spacer(modifier = Modifier.height(if (compact) DosPrintDimens.space8 else DosPrintDimens.space16))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
-            repeat(3) { index ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(if (index == 2) 0.68f else 1f)
-                        .height(DosPrintDimens.space4)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.outlineVariant),
-                )
-            }
         }
     }
 }
@@ -378,9 +285,11 @@ private fun DocumentRow(
 }
 
 private const val MaxVisibleDocuments = 6
-private val HomeContentMaxWidth = 1040.dp
-private val WideHomeBreakpoint = 680.dp
-private val CompactArtworkHeight = 164.dp
-private val WideArtworkHeight = 236.dp
-private val ActionTileHeight = 92.dp
-private val ActionIconSize = 44.dp
+private val HomeContentMaxWidth = 560.dp
+private val HomeColumnMaxWidth = 440.dp
+private val HomeBodyMaxWidth = 340.dp
+private val CompactHeightBreakpoint = 460.dp
+private val ActionTileHeight = 168.dp
+private val CompactActionTileHeight = 124.dp
+private val ActionIconSize = 60.dp
+private val CompactIconSize = 44.dp

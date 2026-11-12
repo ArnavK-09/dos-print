@@ -91,33 +91,38 @@ class DocumentsViewModel(
         }
         AppLog.info("documents: picker returned ${uris.size} uri(s) images=$asImages")
         viewModelScope.launch {
-            val result = importer.import(uris)
-            result.failedUris.forEach { uri ->
-                ErrorReporter.report(AREA_IMPORT, IllegalStateException("unreadable: $uri"))
-            }
-            if (result.importedCount == 0) {
-                mutableState.update {
-                    it.copy(errorMessage = IMPORT_FAILED, failedUris = result.failedUris)
+            mutableState.update { it.copy(isImporting = true, errorMessage = null) }
+            try {
+                val result = importer.import(uris)
+                result.failedUris.forEach { uri ->
+                    ErrorReporter.report(AREA_IMPORT, IllegalStateException("unreadable: $uri"))
                 }
-                _importFailures.tryEmit(result.failedCount)
-                return@launch
-            }
-            session.setDocuments(result.documents)
-            AppLog.info("documents: session now holds ${result.documents.size} new document(s)")
-            _imported.tryEmit(
-                ImportEvent(
-                    count = result.importedCount,
-                    asImages = asImages,
-                    failed = result.failedCount,
-                ),
-            )
-            mutableState.update { current ->
-                current.copy(
-                    selectedUris = result.documents.mapTo(mutableSetOf()) { it.uri },
-                    snackbarMessage = if (result.isCompleteSuccess) IMPORT_DONE else IMPORT_PARTIAL,
-                    errorMessage = null,
-                    failedUris = result.failedUris,
+                if (result.importedCount == 0) {
+                    mutableState.update {
+                        it.copy(errorMessage = IMPORT_FAILED, failedUris = result.failedUris)
+                    }
+                    _importFailures.tryEmit(result.failedCount)
+                    return@launch
+                }
+                session.setDocuments(result.documents)
+                AppLog.info("documents: session now holds ${result.documents.size} new document(s)")
+                _imported.tryEmit(
+                    ImportEvent(
+                        count = result.importedCount,
+                        asImages = asImages,
+                        failed = result.failedCount,
+                    ),
                 )
+                mutableState.update { current ->
+                    current.copy(
+                        selectedUris = result.documents.mapTo(mutableSetOf()) { it.uri },
+                        snackbarMessage = if (result.isCompleteSuccess) IMPORT_DONE else IMPORT_PARTIAL,
+                        errorMessage = null,
+                        failedUris = result.failedUris,
+                    )
+                }
+            } finally {
+                mutableState.update { it.copy(isImporting = false) }
             }
         }
     }

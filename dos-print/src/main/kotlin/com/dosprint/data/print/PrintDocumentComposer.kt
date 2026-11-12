@@ -145,17 +145,16 @@ class PrintDocumentComposer(
         pageHeight: Float,
     ): List<RectF> {
         val paper = settings.effectivePaper
-        if (!page.fitsPhotoCount(
-                count = itemCount,
-                pageAspect = settings.sheetAspect,
-                pageWidthInches = paper.widthInches,
-                pageHeightInches = paper.heightInches,
-                marginFraction = grid.marginFraction,
-                cellBorderFraction = settings.cellBorderFraction,
-            )
-        ) {
-            return emptyList()
-        }
+        val fitsRequestedCount = page.fitsPhotoCount(
+            count = itemCount,
+            pageAspect = settings.sheetAspect,
+            pageWidthInches = paper.widthInches,
+            pageHeightInches = paper.heightInches,
+            marginFraction = grid.marginFraction,
+            cellBorderFraction = settings.cellBorderFraction,
+        )
+        val placedCount = if (fitsRequestedCount) itemCount else ImagePageSettings.MIN_IMAGES_PER_PAGE
+        val layoutPage = if (fitsRequestedCount) page else page.withImagesPerPage(placedCount, settings.sheetAspect)
         val photoWidth = page.photoWidthInches * pageWidth / paper.widthInches
         val photoHeight = page.photoHeightInches * pageHeight / paper.heightInches
         val marginX = pageWidth * grid.marginFraction
@@ -166,8 +165,8 @@ class PrintDocumentComposer(
             pageWidth - marginX,
             pageHeight - marginY,
         )
-        if (page.usesGrid && page.compactGroup) {
-            val compactPage = page.withImagesPerPage(itemCount, settings.sheetAspect)
+        if (layoutPage.usesGrid && layoutPage.compactGroup) {
+            val compactPage = layoutPage.withImagesPerPage(placedCount, settings.sheetAspect)
             val compactGrid = compactPage.layoutGridFor(
                 pageAspect = settings.sheetAspect,
                 pageWidthInches = paper.widthInches,
@@ -175,14 +174,14 @@ class PrintDocumentComposer(
                 marginFraction = grid.marginFraction,
             )
             val columns = compactGrid.columns
-            val rows = (itemCount + columns - 1) / columns
+            val rows = (placedCount + columns - 1) / columns
             val gapX = printableBounds.width() * compactGrid.gutterFraction
             val gapY = printableBounds.height() * compactGrid.gutterFraction
             val groupWidth = columns * photoWidth + (columns - 1) * gapX
             val groupHeight = rows * photoHeight + (rows - 1) * gapY
             val groupLeft = printableBounds.left + (printableBounds.width() - groupWidth) * page.position.column / 2f
             val groupTop = printableBounds.top + (printableBounds.height() - groupHeight) * page.position.row / 2f
-            return (0 until itemCount).map { index ->
+            return (0 until placedCount).map { index ->
                 val row = index / columns
                 val column = index % columns
                 val left = groupLeft + column * (photoWidth + gapX)
@@ -190,20 +189,20 @@ class PrintDocumentComposer(
                 RectF(left, top, left + photoWidth, top + photoHeight)
             }
         }
-        if (!page.usesGrid) {
+        if (!layoutPage.usesGrid) {
             val left = printableBounds.left + (printableBounds.width() - photoWidth) * page.position.column / 2f
             val top = printableBounds.top + (printableBounds.height() - photoHeight) * page.position.row / 2f
             return listOf(RectF(left, top, left + photoWidth, top + photoHeight))
         }
         val cells = grid.allSlots(pageWidth, pageHeight).map { RectF(it[0], it[1], it[2], it[3]) }
         val indexes = when {
-            itemCount >= cells.size -> cells.indices.toList()
-            itemCount > 1 ->
+            placedCount >= cells.size -> cells.indices.toList()
+            placedCount > 1 ->
                 cells.indices
-                    .map { index -> (index * (cells.lastIndex.toFloat() / (itemCount - 1))).roundToInt() }
+                    .map { index -> (index * (cells.lastIndex.toFloat() / (placedCount - 1))).roundToInt() }
                     .distinct()
-                    .take(itemCount)
-            else -> cells.indices.take(itemCount)
+                    .take(placedCount)
+            else -> cells.indices.take(placedCount)
         }
         return indexes.mapNotNull(cells::getOrNull).map { cell ->
             val left = cell.left + (cell.width() - photoWidth) * page.position.column / 2f
@@ -258,6 +257,11 @@ class PrintDocumentComposer(
         mediaWidthPx: Int,
     ) {
         val rotation = page.rotation
+        val scaling = if (page.photoSize == PhotoSizePreset.CUSTOM) {
+            ImageScaling.STRETCH_TO_FIT
+        } else {
+            page.scaling
+        }
         val targetWidth = (if (rotation.swapsDimensions) slot.height() else slot.width()).coerceAtLeast(1f)
         val targetHeight = (if (rotation.swapsDimensions) slot.width() else slot.height()).coerceAtLeast(1f)
         val target = RectF(
@@ -266,13 +270,13 @@ class PrintDocumentComposer(
             slot.centerX() + targetWidth / 2f,
             slot.centerY() + targetHeight / 2f,
         )
-        val scale = when (page.scaling) {
+        val scale = when (scaling) {
             ImageScaling.CROP_TO_FIT -> maxOf(targetWidth / bitmap.width, targetHeight / bitmap.height)
             ImageScaling.SCALE_TO_FIT -> minOf(targetWidth / bitmap.width, targetHeight / bitmap.height)
             ImageScaling.STRETCH_TO_FIT -> 1f
         }
-        val drawWidth = if (page.scaling == ImageScaling.STRETCH_TO_FIT) targetWidth else bitmap.width * scale
-        val drawHeight = if (page.scaling == ImageScaling.STRETCH_TO_FIT) targetHeight else bitmap.height * scale
+        val drawWidth = if (scaling == ImageScaling.STRETCH_TO_FIT) targetWidth else bitmap.width * scale
+        val drawHeight = if (scaling == ImageScaling.STRETCH_TO_FIT) targetHeight else bitmap.height * scale
         val anchorX = if (page.photoSize == PhotoSizePreset.AUTO) page.position.column / 2f else 0.5f
         val anchorY = if (page.photoSize == PhotoSizePreset.AUTO) page.position.row / 2f else 0.5f
         val placement = RectF(
@@ -291,7 +295,7 @@ class PrintDocumentComposer(
             val strokeWidth = page.border.widthPoints * mediaWidthPx / pageWidthPoints.coerceAtLeast(1f)
             val outline = when {
                 page.photoSize != PhotoSizePreset.AUTO -> target
-                page.scaling == ImageScaling.SCALE_TO_FIT -> placement
+                scaling == ImageScaling.SCALE_TO_FIT -> placement
                 else -> target
             }
             val halfStroke = strokeWidth / 2f

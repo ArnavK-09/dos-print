@@ -43,8 +43,6 @@ class PreferencesRepositoryImpl(
 
     override suspend fun setDynamicColor(enabled: Boolean) = put(Keys.dynamicColor, enabled)
 
-    override suspend fun setIncreaseContrast(enabled: Boolean) = put(Keys.increaseContrast, enabled)
-
     override suspend fun setLiquidGlassEnabled(enabled: Boolean) = put(Keys.liquidGlassEnabled, enabled)
 
     override suspend fun setDefaultQuality(resolution: PrintResolution) = put(Keys.defaultQuality, resolution.name)
@@ -116,7 +114,6 @@ class PreferencesRepositoryImpl(
         return UserPreferences(
             theme = preferences.readEnum(Keys.theme, defaults.theme),
             useDynamicColor = preferences[Keys.dynamicColor] ?: defaults.useDynamicColor,
-            increaseContrast = preferences[Keys.increaseContrast] ?: defaults.increaseContrast,
             liquidGlassEnabled = preferences[Keys.liquidGlassEnabled] ?: defaults.liquidGlassEnabled,
             defaultQuality = preferences.readEnum(Keys.defaultQuality, defaults.defaultQuality),
             defaultColorMode = preferences.readEnum(Keys.defaultColorMode, defaults.defaultColorMode),
@@ -141,7 +138,6 @@ class PreferencesRepositoryImpl(
     private object Keys {
         val theme = stringPreferencesKey("theme")
         val dynamicColor = booleanPreferencesKey("dynamic_color")
-        val increaseContrast = booleanPreferencesKey("increase_contrast")
         val liquidGlassEnabled = booleanPreferencesKey("liquid_glass_enabled")
         val defaultQuality = stringPreferencesKey("default_quality")
         val defaultColorMode = stringPreferencesKey("default_color_mode")

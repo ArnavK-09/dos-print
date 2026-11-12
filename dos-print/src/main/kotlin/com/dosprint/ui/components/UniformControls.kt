@@ -91,7 +91,10 @@ fun UniformButtonCell(
             onClick = button.onClick,
             enabled = button.enabled,
             shape = shape,
-            colors = ButtonDefaults.buttonColors(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.onSurface,
+                contentColor = MaterialTheme.colorScheme.surface,
+            ),
             modifier = baseModifier,
         ) {
             content()

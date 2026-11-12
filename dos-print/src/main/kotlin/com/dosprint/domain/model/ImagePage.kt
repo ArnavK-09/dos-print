@@ -65,12 +65,23 @@ data class ImagePageSettings(
             photoWidthInches / photoHeightInches
         }
 
-    fun withSafeCustomPhotoSize(): ImagePageSettings = copy(
-        customPhotoWidthInches = customPhotoWidthInches.takeIf { isValidCustomPhotoDimension(it) }
-            ?: DEFAULT_CUSTOM_PHOTO_WIDTH_INCHES,
-        customPhotoHeightInches = customPhotoHeightInches.takeIf { isValidCustomPhotoDimension(it) }
-            ?: DEFAULT_CUSTOM_PHOTO_HEIGHT_INCHES,
-    )
+    fun withSafeCustomPhotoSize(
+        maxWidthInches: Float = MAX_CUSTOM_PHOTO_DIMENSION_INCHES,
+        maxHeightInches: Float = MAX_CUSTOM_PHOTO_DIMENSION_INCHES,
+    ): ImagePageSettings {
+        val safeMaxWidth = maxWidthInches.coerceIn(MIN_CUSTOM_PHOTO_DIMENSION_INCHES, MAX_CUSTOM_PHOTO_DIMENSION_INCHES)
+        val safeMaxHeight = maxHeightInches.coerceIn(MIN_CUSTOM_PHOTO_DIMENSION_INCHES, MAX_CUSTOM_PHOTO_DIMENSION_INCHES)
+        return copy(
+            customPhotoWidthInches = customPhotoWidthInches
+                .takeIf { isValidCustomPhotoDimension(it) }
+                ?.coerceAtMost(safeMaxWidth)
+                ?: minOf(DEFAULT_CUSTOM_PHOTO_WIDTH_INCHES, safeMaxWidth),
+            customPhotoHeightInches = customPhotoHeightInches
+                .takeIf { isValidCustomPhotoDimension(it) }
+                ?.coerceAtMost(safeMaxHeight)
+                ?: minOf(DEFAULT_CUSTOM_PHOTO_HEIGHT_INCHES, safeMaxHeight),
+        )
+    }
 
     val effectiveGrid: LayoutGrid
         get() = layoutGridFor(DEFAULT_PAPER_ASPECT)

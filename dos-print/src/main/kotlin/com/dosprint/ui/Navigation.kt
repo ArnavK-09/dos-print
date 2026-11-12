@@ -7,9 +7,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,19 +45,7 @@ enum class TopLevelDestination(
 ) {
     HOME(
         route = Route.Home,
-        labelRes = R.string.nav_home,
-        selectedIcon = Icons.Filled.Home,
-        unselectedIcon = Icons.Outlined.Home,
-    ),
-    DOCUMENTS(
-        route = Route.Documents,
-        labelRes = R.string.nav_documents,
-        selectedIcon = DosPrintIcons.Document,
-        unselectedIcon = DosPrintIcons.Document,
-    ),
-    PRINTERS(
-        route = Route.Printers,
-        labelRes = R.string.nav_printers,
+        labelRes = R.string.nav_print,
         selectedIcon = DosPrintIcons.Printer,
         unselectedIcon = DosPrintIcons.Printer,
     ),
@@ -87,14 +73,11 @@ object Route {
  */
 private val PhoneDestinations = listOf(
     TopLevelDestination.HOME,
-    TopLevelDestination.PRINTERS,
     TopLevelDestination.SETTINGS,
 )
 
 private val ExpandedDestinations = listOf(
     TopLevelDestination.HOME,
-    TopLevelDestination.DOCUMENTS,
-    TopLevelDestination.PRINTERS,
     TopLevelDestination.SETTINGS,
 )
 

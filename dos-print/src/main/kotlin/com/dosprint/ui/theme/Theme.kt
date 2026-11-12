@@ -26,10 +26,10 @@ import com.dosprint.domain.model.ThemeOption
 private val BrandBlue = Color(0xFF2E5AAC)
 private val BrandBlueLight = Color(0xFF9FC0F5)
 private val BrandBlueDark = Color(0xFF1B3F80)
-private val PaperWhite = Color(0xFFFDFCFF)
-private val PaperSlate = Color(0xFF12161F)
-private val NeutralLight = Color(0xFFE9EDF5)
-private val NeutralDark = Color(0xFF262B36)
+private val PaperWhite = Color(0xFFFFFFFF)
+private val PaperSlate = Color(0xFF000000)
+private val NeutralLight = Color(0xFFF2F2F2)
+private val NeutralDark = Color(0xFF151515)
 
 private val LightScheme = lightColorScheme(
     primary = BrandBlue,
@@ -76,27 +76,13 @@ private val DarkScheme = darkColorScheme(
     errorContainer = Color(0xFF93000A),
     onErrorContainer = Color(0xFFFFDAD6),
     background = PaperSlate,
-    onBackground = Color(0xFFE3E2E6),
+    onBackground = Color(0xFFF2F2F2),
     surface = PaperSlate,
-    onSurface = Color(0xFFE3E2E6),
+    onSurface = Color(0xFFF2F2F2),
     surfaceVariant = NeutralDark,
-    onSurfaceVariant = Color(0xFFC3C6CF),
-    outline = Color(0xFF8D9199),
-    outlineVariant = Color(0xFF43474E),
-)
-
-private val HighContrastLight = LightScheme.copy(
-    onBackground = Color.Black,
-    onSurface = Color.Black,
-    onSurfaceVariant = Color(0xFF1A1C20),
-    outline = Color(0xFF2A2D33),
-)
-
-private val HighContrastDark = DarkScheme.copy(
-    onBackground = Color.White,
-    onSurface = Color.White,
-    onSurfaceVariant = Color(0xFFEFF0F3),
-    outline = Color(0xFFCFD2D8),
+    onSurfaceVariant = Color(0xFFBDBDBD),
+    outline = Color(0xFF8A8A8A),
+    outlineVariant = Color(0xFF3A3A3A),
 )
 
 private val AppTypography = Typography(
@@ -176,7 +162,6 @@ data class Spacing(
 fun DosPrintTheme(
     themeOption: ThemeOption = ThemeOption.SYSTEM,
     useDynamicColor: Boolean = true,
-    increaseContrast: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val darkTheme = when (themeOption) {
@@ -192,11 +177,19 @@ fun DosPrintTheme(
         darkTheme -> DarkScheme
         else -> LightScheme
     }
-    val colorScheme = when {
-        increaseContrast && darkTheme -> HighContrastDark
-        increaseContrast -> HighContrastLight
-        darkTheme -> baseScheme
-        else -> baseScheme
+    val colorScheme = if (darkTheme) {
+        baseScheme.copy(
+            background = PaperSlate,
+            onBackground = Color(0xFFF2F2F2),
+            surface = PaperSlate,
+            onSurface = Color(0xFFF2F2F2),
+            surfaceVariant = NeutralDark,
+            onSurfaceVariant = Color(0xFFBDBDBD),
+            outline = Color(0xFF8A8A8A),
+            outlineVariant = Color(0xFF3A3A3A),
+        )
+    } else {
+        baseScheme
     }
     CompositionLocalProvider(LocalSpacing provides Spacing()) {
         MaterialTheme(
